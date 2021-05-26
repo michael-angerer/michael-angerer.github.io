@@ -1,0 +1,7 @@
+---
+layout: post
+title:  "OTA Update Your ESP32 via BLE Without External Libraries"
+date:   2021-05-26 12:19:02 +0200
+categories: esp32 ble
+---
+Tesla; continuously improve your product; fix bugs; could save you from costly recalls;
