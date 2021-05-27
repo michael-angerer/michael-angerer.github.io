@@ -12,4 +12,4 @@ I gained valuable professional work experience working in various jobs in the au
 
 On this website, I write about my passion projects: I like to work with microcontrollers (ESP32, Raspberry Pi Pico, Arduino, Nordic Semiconductor nRF52) and share project ideas with you. Most blog posts you will find on this website will be about software development for embedded systems (C/C++ and MicroPython). Sometimes I will take you on a journey to design custom PCBs or other hardware together. If I am bored of embedded systems, I like to work on my Apps (mostly Flutter, sometimes SwiftUI). 
 
-If you would like to reach out to me, do not hesitate and sent me a mail!
+If you would like to reach out to me, do not hesitate and <a href="mailto:{{site.email}}">contact me</a>!

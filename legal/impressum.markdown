@@ -5,10 +5,4 @@ permalink: /impressum/
 exclude: true
 ---
 
-Michael Angerer\
-Fruehlingstr. 3a\
-82008 Unterhaching\
-Deutschland
-
-{{site.email}}\
-0 1575 305 9477
+<img src="/assets/img/impressum.png" width="30%" />
