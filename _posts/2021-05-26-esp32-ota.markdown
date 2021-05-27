@@ -4,4 +4,76 @@ title:  "OTA Update Your ESP32 via BLE Without External Libraries"
 date:   2021-05-26 12:19:02 +0200
 categories: esp32 ble
 ---
+
+![ESP32 OTA via BLE](/assets/img/esp32_ota/intro.png)
+
+
 Tesla; continuously improve your product; fix bugs; could save you from costly recalls;
+
+
+# Project Setup
+
+If you haven't setup a project already, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. If you have the *hello world* or your own base project running, we can begin adding the BLE functionality to it.
+
+Before we can start working we need to configure the SDK: You can do this with the helper program <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html">menuconfig</a>, or alternatively by creating a file called *sdkconfig.defaults* in the root folder of your project and pasting the following content: 
+
+```
+# OTA 
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_TWO_OTA=y
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
+
+# BLE
+CONFIG_BT_ENABLED=y
+CONFIG_BTDM_CTRL_MODE_BLE_ONLY=y
+CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY=n
+CONFIG_BTDM_CTRL_MODE_BTDM=n
+CONFIG_BT_BLUEDROID_ENABLED=n
+CONFIG_BT_NIMBLE_ENABLED=y
+```
+
+You may need to remove the *build* folder and the old *sdkconfig* file first and then build your project for the changes to take effect. This will setup two things: The partition table and the Bluetooth stack. 
+
+## Partition Table
+
+The partition table defines how the flash storage of the ESP32 is devided up. In the default configuration the partition table has 3 partitions: *nvs*, *phy_init*, and *factory*. 
+
+The *nvs* partition is used to store user data, in a simple key-value storage. You can use the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html"> non-volatile storage library </a> to save your own data into this partition. Many external libraries (including NimBLE) use this partition for storing data too, so do not forget to include this partition even is you don't use it yourself. 
+
+The *phy_init* partition contains initilalizing data for the radio hardware (wifi and bluetooth). Don't worry, there is no need for you to touch this partition, in fact you probably shouldn't.
+
+The largest partition is called *factory* and it contains the user program. When booting up an ESP32 the bootloader will run the app flashed onto this partition. What happens if we want to update our application while running from this partition? Well overwritting the code which is currently running does not seem like a viable approach. To takle this program we will use a partition table that looks like this: 
+
+<p align="center">
+   <img src="/assets/img/esp32_ota/partition_table.png" width="50%"/>
+</p>
+
+Instead of having a single app partition, we have 3 app partitions now: *factory*, *ota_0*, and *ota_1*. When we first flash our app onto the ESP32, it will be flashed into the *factory* partition. While running our app from *factory* partition, we will write the new app received via BLE into the *ota_0* partition. Once the update is completed and verified, we will tell the bootloader to run the app from the *ota_0* partition in the next reboot. 
+
+Note here, that when you start an update while running the *ota_0* partition it will write the received code into the *ota_1* partition. If you start the update while running the *ota_1* partition it will write the received code into the *ota_0* partition. The app in the *factory* partition will always stay the same, the *factory* partition is never overwritten durring an OTA. If there is a problem with the new app you can always roll back to a previous version or even the factory app. 
+
+## NimBLE
+
+In this tutorial we will use the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/bluetooth/nimble/index.html">NimBLE</a> Bluetooth stack. NimBLE is known for using less flash space and RAM compared to the Bluedroid stack. The downside is that you can only use BLE, Bluetooth Classis is not supported. If you are only using BLE in your project, NimBLE is the stack recommended by Espressif.
+
+
+# Bluetooth Low Energy Basics
+
+<p align="center">
+   <img src="/assets/img/esp32_ota/profile_service_characteristic.png" width="50%"/>
+</p>
+
+# Over-the-Air Update Process
+
+# ESP32 Code
+
+# Python Code
+
+# Summary
+
+# References
+
+- Icons / Pictures: 
+   - https://github.com/gnome-colors/gnome-colors
+   - https://www.bluetooth.com/
+   - https://www.az-delivery.de/en
