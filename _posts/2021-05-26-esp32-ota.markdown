@@ -13,7 +13,7 @@ Tesla; continuously improve your product; fix bugs; could save you from costly r
 
 # Project Setup
 
-If you haven't setup a project already, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. If you have the *hello world* or your own base project running, we can begin adding the BLE functionality to it.
+If you haven't setup a project yet, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. If you have the *hello world* or your own base project running, we can begin adding the BLE functionality to it.
 
 Before we can start working we need to configure the SDK: You can do this with the helper program <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html">menuconfig</a>, or alternatively by creating a file called *sdkconfig.defaults* in the root folder of your project and pasting the following content: 
 
@@ -42,15 +42,15 @@ The *nvs* partition is used to store user data, in a simple key-value storage. Y
 
 The *phy_init* partition contains initilalizing data for the radio hardware (wifi and bluetooth). Don't worry, there is no need for you to touch this partition, in fact you probably shouldn't.
 
-The largest partition is called *factory* and it contains the user program. When booting up an ESP32 the bootloader will run the app flashed onto this partition. What happens if we want to update our application while running from this partition? Well overwritting the code which is currently running does not seem like a viable approach. To takle this program we will use a partition table that looks like this: 
+The largest partition is called *factory* and it contains the user program. When booting up an ESP32 the bootloader will run the app flashed onto this partition. What happens if we want to update our application while running from this partition? Well, overwritting the code which is currently running does not seem like a viable approach. To takle this problem we will use a partition table that looks like this: 
 
 <p align="center">
    <img src="/assets/img/esp32_ota/partition_table.png" width="50%"/>
 </p>
 
-Instead of having a single app partition, we have 3 app partitions now: *factory*, *ota_0*, and *ota_1*. When we first flash our app onto the ESP32, it will be flashed into the *factory* partition. While running our app from *factory* partition, we will write the new app received via BLE into the *ota_0* partition. Once the update is completed and verified, we will tell the bootloader to run the app from the *ota_0* partition in the next reboot. 
+Instead of having a single app partition, we have 3 app partitions now: *factory*, *ota_0*, and *ota_1*. When we first flash our app onto the ESP32, it will be flashed to the *factory* partition. While running our app from the *factory* partition, we will write the new app received via BLE to the *ota_0* partition. Once the update is completed and verified, we will tell the bootloader to run the app from the *ota_0* partition in the next reboot. 
 
-Note here, that when you start an update while running the *ota_0* partition it will write the received code into the *ota_1* partition. If you start the update while running the *ota_1* partition it will write the received code into the *ota_0* partition. The app in the *factory* partition will always stay the same, the *factory* partition is never overwritten durring an OTA. If there is a problem with the new app you can always roll back to a previous version or even the factory app. 
+Note here, that when you start an update while running the *ota_0* partition it will write the received code to the *ota_1* partition. If you start the update while running the *ota_1* partition it will write the received code to the *ota_0* partition. The app in the *factory* partition will always stay the same, the *factory* partition is never overwritten durring an OTA. If there is a problem with the new app you can always roll back to a previous version or even the factory app. 
 
 ## NimBLE
 
@@ -59,15 +59,55 @@ In this tutorial we will use the <a href="https://docs.espressif.com/projects/es
 
 # Bluetooth Low Energy Basics
 
+Before we dive into the OTA process we will first review the basics of Bluetooth Low Energy (BLE). BLE has been around for quite a while now and it is integrated with most smartphones on the market today. In a nutshell: BLE is a wireless technology that allows devices to exchange small amounts of data with low power usage. There are devices on the market that can run for months on a single coin cell while sending out data via BLE periodically. In the next paragraphs, we will discuss how BLE enabled devices to discover each other, how they advertise what kind of services (data) they provide, and how the data exchange between them works.  
+
+## GAP
+
+The Generic Access Profile (GAP) is responsible for advertising a device's services and managing connections between devices. There are two roles in GAP: Peripheral and central. The peripheral in most cases is the less powerful device, typically a microcontroller based device running on battery. The central device connects to the peripheral and has typically more processing power (e.g., a PC or a smartphone). In our case, the ESP32 will be the peripheral and your PC will be the central device. 
+
+A peripheral is periodically transmitting small packages (31 bytes of data) to let central devices know about its existence. This process is called advertising.  Central devices scan for peripherals' advertisements and then connect with them to exchange data. During this connection process, the two devices can negotiate the maximum amount of data to be transferred per BLE package, called the maximum transmission unit (MTU). The size of the MTU depends not only on the peripheral but also on the central. Some BLE stacks allow requesting arbitrary MTU sizes, but many have a predefined MTU that you cannot change. I am using a MacBook Pro 2019 with an ESP32 and receive an MTU of size 256 bytes. 
+
+
+## GATT
+
+The Generic Attribute Profile (GATT) defines what services and data BLE devices offer. GATT comes into action once the advertisement and connection phase governed by GAP has finished and two devices connect.  It uses the Attribute Protocol (ATT) to define how the data is structured using so-called services and characteristics. 
+
+GATT allows modelling the capabilities of a BLE device similar to an object in programming: Attributes are called characteristics. Multiple characteristics form a service. And finally, a device can have several services bundled into a profile (a device can have multiple profiles). The picture below visualises the profile we will implement for the OTA:
+
 <p align="center">
    <img src="/assets/img/esp32_ota/profile_service_characteristic.png" width="50%"/>
 </p>
 
+Two services are used: The Device Information service is required by the BLE specifications. It contains two mandatory Characteristics: The Manufacturer Name and the Model Number of the device. The second service is the OTA Service. It has two Characteristics: OTA Control is used to initiate and control the update process. OTA Data is used to transfer the firmware from the PC to the ESP32. 
+
+You can store Services and Characteristics programmatically within the peripheral in the form of a look-up table. In this table, you can specify your Characteristics using UUIDs, access flags, and access callbacks. You can check out the list of pre-defined Characteristics <a href="https://www.bluetooth.com/specifications/assigned-numbers/">here</a> and use a standardized 16bit UUID. Alternatively, you can also create your own 128bit UUID and use a custom Characteristic. We will use pre-defined UUIDs for the Device Information Service and custom UUIDs for the OTA Service. 
+
+The peripheral device manages the attribute table, while the central device reads and writes these characteristics. In GATT terms a peripheral is called a server and a central device is called a client. When you specify the attribute table you can set flags that indicate what kind of operations the client can perform on the Characteristics. In our scenario, we will need to use the flags read, write, and notify. The first two are quite self-explanatory. By flagging a Characteristics with notify, the client can subscribe to it. If the Characteristic changes the server will automatically send a notification to the client with the new value.
+
 # Over-the-Air Update Process
+
+<p align="center">
+   <img src="/assets/img/esp32_ota/overview.png" width="90%"/>
+</p>
+
+After reviewing the basics, we can talk about the OTA update implementation.  The code is separated into two parts: The client implementation on the PC with the Python library Bleak and the server implementation on the ESP32 using NimBLE. The following picture shows a sequence diagram of the OTA process:
+
+<p align="center">
+   <img src="/assets/img/esp32_ota/sequencediagram.png" width="40%"/>
+</p>
+
+blah blah split; blah bla sent; blah bla ESP received; blah blah;
+
 
 # ESP32 Code
 
+The server-side is implemented using the NimBLE stack. It is the from Espressif recommended way if you are only using BLE. We will create the GATT service table containing all necessary Characteristics, set the access flags, and implement access callbacks for each Characteristic. These callbacks are pieces of code that NimBLE calls once a client tries to read or write to one of the characteristics.  
+
 # Python Code
+
+The client-side is implemented in Python using the platform-agnostic BLE library <a href="https://github.com/hbldh/bleak">Bleak</a>. Bleak uses Python's asyncio library for writing asynchronous code, you should take a look at the <a href="https://docs.python.org/3/library/asyncio.html">docs</a> to get familiar if you don't know it. Don't worry you don't need a deep understanding of asynchronous programming to follow this tutorial. 
+
+**Beware:** The property to retrieve the MTU size has only recently been added to Bleak. Please use a version greater than 0.11.0 or the <a href="https://bleak.readthedocs.io/en/latest/installation.html#from-sources">developer</a> branch for this tutorial. 
 
 # Summary
 
@@ -77,3 +117,4 @@ In this tutorial we will use the <a href="https://docs.espressif.com/projects/es
    - https://github.com/gnome-colors/gnome-colors
    - https://www.bluetooth.com/
    - https://www.az-delivery.de/en
+   - https://pypi.org/project/bleak/
