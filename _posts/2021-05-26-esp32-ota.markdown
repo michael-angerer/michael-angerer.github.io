@@ -8,7 +8,9 @@ categories: esp32 ble
 ![ESP32 OTA via BLE](/assets/img/esp32_ota/intro.png)
 
 
-Tesla; continuously improve your product; fix bugs; could save you from costly recalls;
+Over-the-air update capability is undeniably a must-have feature for any modern IoT product. The benefits are limitless:  You can improve customer satisfaction with your products by providing valuable software improvements and bug fixes after shipment. An already great product getting better over time is an exceptional customer experience. An OTA can even save you from costly recalls. 
+
+In this article, we will implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
 
 
 # Project Setup
@@ -61,14 +63,14 @@ In this tutorial we will use the <a href="https://docs.espressif.com/projects/es
 
 Before we dive into the OTA process we will first review the basics of Bluetooth Low Energy (BLE). BLE has been around for quite a while now and it is integrated with most smartphones on the market today. In a nutshell: BLE is a wireless technology that allows devices to exchange small amounts of data with low power usage. There are devices on the market that can run for months on a single coin cell while sending out data via BLE periodically. In the next paragraphs, we will discuss how BLE enabled devices to discover each other, how they advertise what kind of services (data) they provide, and how the data exchange between them works.  
 
-## GAP
+## Generic Access Profile 
 
 The Generic Access Profile (GAP) is responsible for advertising a device's services and managing connections between devices. There are two roles in GAP: Peripheral and central. The peripheral in most cases is the less powerful device, typically a microcontroller based device running on battery. The central device connects to the peripheral and has typically more processing power (e.g., a PC or a smartphone). In our case, the ESP32 will be the peripheral and your PC will be the central device. 
 
 A peripheral is periodically transmitting small packages (31 bytes of data) to let central devices know about its existence. This process is called advertising.  Central devices scan for peripherals' advertisements and then connect with them to exchange data. During this connection process, the two devices can negotiate the maximum amount of data to be transferred per BLE package, called the maximum transmission unit (MTU). The size of the MTU depends not only on the peripheral but also on the central. Some BLE stacks allow requesting arbitrary MTU sizes, but many have a predefined MTU that you cannot change. I am using a MacBook Pro 2019 with an ESP32 and receive an MTU of size 256 bytes. 
 
 
-## GATT
+## Generic Attribute Profile
 
 The Generic Attribute Profile (GATT) defines what services and data BLE devices offer. GATT comes into action once the advertisement and connection phase governed by GAP has finished and two devices connect.  It uses the Attribute Protocol (ATT) to define how the data is structured using so-called services and characteristics. 
 
@@ -96,12 +98,228 @@ After reviewing the basics, we can talk about the OTA update implementation.  Th
    <img src="/assets/img/esp32_ota/sequencediagram.png" width="40%"/>
 </p>
 
-blah blah split; blah bla sent; blah bla ESP received; blah blah;
+
+The OTA process kicks off once the PC sends an OTA request to the ESP32 by writing to the OTA Control Characteristic. During the GAP connection process, the PC and ESP32 negotiate the maximum MTU size. The packet size is calculated based on the MTU size minus 3 bytes for ATT-related overhead. The PC writes the packet size to the OTA Data Characteristic, and the ESP32 responds with an acknowledgment notification. 
+
+The Python script splits the firmware binary into packets and consecutively writes them to the OTA Data Characteristic.  The PC signals that the OTA finished by writing to the OTA Control Characteristic, and the ESP32 responds with an acknowledgment notification. 
+
+Now we know how the OTA works in general, let us take a look at the implementation in detail. 
 
 
 # ESP32 Code
 
 The server-side is implemented using the NimBLE stack. It is the from Espressif recommended way if you are only using BLE. We will create the GATT service table containing all necessary Characteristics, set the access flags, and implement access callbacks for each Characteristic. These callbacks are pieces of code that NimBLE calls once a client tries to read or write to one of the characteristics.  
+
+The ESP32 source code consists of 3 files: main.c, gap.c, and gatt_svr.c. Let's take a look at each of those files and highlight interesting code snippets! 
+
+## Main File
+
+The main.c file is the entry point for your code. ESP32 calls the main function when the system boots up. After every boot, we need to check if the currently running firmware boots for the first time. Take a look at this code: 
+
+```c
+const esp_partition_t *partition = esp_ota_get_running_partition();
+const esp_ota_img_states_t ota_state;
+esp_ota_get_state_partition(partition, &ota_state);
+
+if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+   ESP_LOGI(LOG_TAG_MAIN, "An OTA update has been detected.");
+
+   if (run_diagnostics()) {
+      esp_ota_mark_app_valid_cancel_rollback();
+   } else {
+      esp_ota_mark_app_invalid_rollback_and_reboot();
+   }
+
+}
+```
+
+First, we must check from which partition we are running. With this information, we can retrieve the OTA state. After flashing new firmware, ESP marks OTA state as ESP_OTA_IMG_NEW. If we boot this image the state changes to ESP_OTA_IMG_PENDING_VERIFY. During the first boot of a new image, we must run a diagnostic check to verify that the new firmware is functional. If the diagnostic runs successfully we can mark the image as ESP_OTA_IMG_VALID. Should the diagnostics fail or we reboot the system without setting the image valid, the image will be marked invalid. The bootloader won't select this image for the next boot and switch back to the old partition (if possible). You can find more information about this rollback process 
+<a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/ota.html#app-ota-state">here</a>.
+
+In addition to the verification code, you will also find code to set up the NimBLE stack in the main file. The code is quite self-explanatory and consists of stack initialization, callback registration, calling the method to initialize the GATT service table, setting the device name, and finally starting the host task for the stack. 
+
+## GAP
+
+The GAP file implements the code for handling connection events. You can find two callbacks, the GAP event handler, the host task, and the advertisement method here. 
+
+Let's take a look at the two callbacks first: If the NimBLE stack runs into an error and performs a reset, the rest callback will execute. The sync callback fires once the synchronization between the NimBLE host and controller. You can read more about that <a href="http://mynewt.apache.org/v1_7_0/network/ble_setup/ble_sync_cb.html">here</a>. What does it mean for us? If the sync happens, the stack is ready and we can start advertising! 
+
+The sync callback calls the *advertise()* function. This function prepares the data to send for the advertisement and starts sending it. The data contains flags that indicate if a client can connect, the transmitted power levels (can be used for distance approximation), the device name, and bits indicating discoverability. 
+
+The main piece of code is the GAP event handler. The NimBLE stack calls this function when a GAP event occurs.  GAP events include: Connect, disconnect, advertisement complete, subscribe, MTU exchange. You don't need to modify this code in most cases, but it is valuable to know that you can react to events using this function. 
+
+```c
+int gap_event_handler(struct ble_gap_event *event, void *arg) {
+  switch (event->type) {
+    case BLE_GAP_EVENT_CONNECT:
+      // A new connection was established
+      ESP_LOGI(LOG_TAG_GAP, "GAP: Connection %s: status=%d",
+               event->connect.status == 0 ? "established" : "failed",
+               event->connect.status);
+      break;
+
+    case BLE_GAP_EVENT_DISCONNECT:
+      ESP_LOGI(LOG_TAG_GAP, "GAP: Disconnect: reason=%d\n",
+               event->disconnect.reason);
+
+      // Connection terminated; resume advertising
+      advertise();
+      break;
+
+      [...]
+  }
+```
+
+The final piece of code in this file is the host task. It simply calls a function to run the NimBLE stack, which will only return if you stop NimBLE manually. Watch the stack size of this task! The task may starve while handling larger BLE packets. 
+
+## GATT SVR
+
+The file gatt_svr.c contains most of the OTA code: The GATT Service table definition and its associated read / write callbacks.  Let us take a look at the service table: 
+
+```c
+static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
+    {
+        // service: OTA Service
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &gatt_svr_svc_ota_uuid.u,
+        .characteristics =
+            (struct ble_gatt_chr_def[]){
+                {
+                    // characteristic: OTA Control
+                    .uuid = &gatt_svr_chr_ota_control_uuid.u,
+                    .access_cb = gatt_svr_chr_ota_control_cb,
+                    .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE |
+                             BLE_GATT_CHR_F_NOTIFY,
+                    .val_handle = &ota_control_val_handle,
+                },
+                {
+                    // characteristic: OTA Data
+                    .uuid = &gatt_svr_chr_ota_data_uuid.u,
+                    .access_cb = gatt_svr_chr_ota_data_cb,
+                    .flags = BLE_GATT_CHR_F_WRITE,
+                    .val_handle = &ota_data_val_handle,
+                },
+                {
+                    0,
+                }},
+    },
+
+    {
+        0,
+    },
+};
+```
+
+This code snippet is the Service table for the OTA Service. The first parameter to choose is the type, which is primary in most cases. The Service has a UUID (defined in the header file) and contains two Characteristics: OTA Control and OTA Data. The two characteristics are defined similarly: You specify a UUID, an access callback, permission flags, and a value handle. The access callback gets called once a client tries to read or write to the characteristic. The flags specify what operations the client can perform on the Characteristics (reading, writing, subscribing to notifications, etc.). The value handle is necessary for sending custom notifications and is used internally by NimBLE to identify the Characteristics. 
+
+When a client (e.g., the PC) reads or writes to one of the characteristics, the associated access callback fires. It is your responsibility as a developer to implement the callback. Let us take a look at the callback for the OTA Control characteristic: 
+
+
+```c
+static int gatt_svr_chr_ota_control_cb(uint16_t conn_handle,
+                                       uint16_t attr_handle,
+                                       struct ble_gatt_access_ctxt *ctxt,
+                                       void *arg) {
+  int rc;
+  uint8_t length = sizeof(gatt_svr_chr_ota_control_val);
+
+  switch (ctxt->op) {
+    case BLE_GATT_ACCESS_OP_READ_CHR:
+      // a client is reading the current value of ota control
+      rc = os_mbuf_append(ctxt->om, &gatt_svr_chr_ota_control_val, length);
+      return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+      break;
+
+    case BLE_GATT_ACCESS_OP_WRITE_CHR:
+      // a client is writing a value to ota control
+      rc = gatt_svr_chr_write(ctxt->om, 1, length, &gatt_svr_chr_ota_control_val, NULL);
+      // update the OTA state with the new value
+      update_ota_control(conn_handle);
+      return rc;
+      break;
+
+    default:
+      break;
+  }
+
+   [...]
+}
+```
+
+We differentiate between reading and writing to the characteristic. You can get this information from the cxtx parameters inherent opcode. If the client reads a value, you must copy the content of the requested variable into the memory buffer om (referenced via cxtx). NimBLE heavily uses these memory buffers for data exchange with the user program (more about them <a href="https://mynewt.apache.org/latest/os/core_os/mbuf/mbuf.html">here</a>). The stack takes this buffer and sends the content to the client via BLE.  If a client writes to the characteristic, the callback uses the function gatt_svr_chr_write() to unpack the value from the memory buffer and store it in the associated local variable. 
+
+Most of this code is boilerplate and not OTA specific. The only OTA-related piece of code is the call of update_ota_control() during the write access. This function checks the received value and starts (or finishes) the OTA process. Let us take a look at the code responsible for starting the OTA: 
+
+```c
+// OTA request
+ESP_LOGI(LOG_TAG_GATT_SVR, "OTA has been requested via BLE.");
+
+// get the next free OTA partition
+update_partition = esp_ota_get_next_update_partition(NULL);
+
+// start the ota update
+err = esp_ota_begin(update_partition, OTA_WITH_SEQUENTIAL_WRITES, &update_handle);
+
+[...]
+
+// retrieve the packet size from OTA data
+packet_size = (gatt_svr_chr_ota_data_val[1] << 8) + gatt_svr_chr_ota_data_val[0];
+ESP_LOGI(LOG_TAG_GATT_SVR, "Packet size is: %d", packet_size);
+
+// notify the client via BLE that the OTA has been acknowledged (or not)
+om = ble_hs_mbuf_from_flat(&gatt_svr_chr_ota_control_val, sizeof(gatt_svr_chr_ota_control_val));
+ble_gattc_notify_custom(conn_handle, ota_control_val_handle, om);
+ESP_LOGI(LOG_TAG_GATT_SVR, "OTA request acknowledgement has been sent.");
+
+[...]
+```
+
+First, we retrieve the target partition to which we will write the received packets. We start the OTA process by calling esp_ota_begin().  Calling this method tells the ESP32 to prepare for the OTA. The function provides us with an update handle. During the update, we will use this handle for sequentially writing the received packets to the partition. Recall that the client writes the size of the packets to the OTA Data characteristic. We get the packet size by reading and combining the first two bytes of the received array.  Finally, the function sends a notification to the client, letting it know that the OTA is acknowledged (or not).  
+
+The OTA Data characteristic has its own callback. The function checks if the update process is started and if so it writes all received packets to the partition with: 
+
+```c
+esp_ota_write(update_handle, (const void *)gatt_svr_chr_ota_data_val, packet_size);
+```
+
+After transferring all packets, the PC will write to the OTA Control characteristic indicating completion of the OTA. In response, the ESP32 executes the following code:
+
+```c
+// end the OTA and start validation
+err = esp_ota_end(update_handle);
+if (err != ESP_OK) {
+   if (err == ESP_ERR_OTA_VALIDATE_FAILED) {
+      ESP_LOGE(LOG_TAG_GATT_SVR,
+               "Image validation failed, image is corrupted!");
+   } else {
+      ESP_LOGE(LOG_TAG_GATT_SVR, "esp_ota_end failed (%s)!",
+               esp_err_to_name(err));
+   }
+   gatt_svr_chr_ota_control_val = SVR_CHR_OTA_CONTROL_DONE_NAK;
+} else {
+   // select the new partition for the next boot
+   err = esp_ota_set_boot_partition(update_partition);
+   if (err != ESP_OK) {
+      ESP_LOGE(LOG_TAG_GATT_SVR, "esp_ota_set_boot_partition failed (%s)!",
+               esp_err_to_name(err));
+   }
+   gatt_svr_chr_ota_control_val = SVR_CHR_OTA_CONTROL_DONE_ACK;
+}
+
+// notify the client via BLE that DONE has been acknowledged
+om = ble_hs_mbuf_from_flat(&gatt_svr_chr_ota_control_val,
+                           sizeof(gatt_svr_chr_ota_control_val));
+ble_gattc_notify_custom(conn_handle, ota_control_val_handle, om);
+ESP_LOGI(LOG_TAG_GATT_SVR, "OTA DONE acknowledgement has been sent.");
+
+[...]
+esp_restart();
+
+```
+
+The function esp_ota_end() completes the OTA by verifying the integrity of the newly written partition. If the verification passes, the bootloader selects this partition for booting in the next reboot (with the state ESP_OTA_IMG_PENDING_VERIFY). The result of the verification process gets send via notification to the client and the ESP32 reboots.
+
+
 
 # Python Code
 
@@ -109,12 +327,78 @@ The client-side is implemented in Python using the platform-agnostic BLE library
 
 **Beware:** The property to retrieve the MTU size has only recently been added to Bleak. Please use a version greater than 0.11.0 or the <a href="https://bleak.readthedocs.io/en/latest/installation.html#from-sources">developer</a> branch for this tutorial. 
 
+The script is quite self-explanatory: First, it scans for BLE devices and searches for a device name esp32: 
+
+```Python
+esp32 = None
+devices = await BleakScanner.discover()
+for device in devices:
+   if device.name == "esp32":
+      esp32 = device
+```
+
+Once it finds the ESP32, it calculates the packet size and writes it to the OTA data characteristic:
+
+```Python
+async with BleakClient(esp32) as client:
+
+   # note this only works with Bleak >= 0.12.0
+   packet_size = (client.mtu_size - 3)
+
+   print(f"Sending packet size: {packet_size}.")
+   await client.write_gatt_char(
+      OTA_DATA_UUID,
+      packet_size.to_bytes(2, 'little'),
+      response=True
+   )
+```
+
+Before we can send the packets, we will subscribe to the OTA Control characteristic. The method expects the UUID and a handler. The handler executes every time we receive a notification from the ESP32:
+
+```Python
+async def _ota_notification_handler(sender: int, data: bytearray):
+   if data == SVR_CHR_OTA_CONTROL_REQUEST_ACK:
+         print("ESP32: OTA request acknowledged.")
+         await queue.put("ack")
+   elif data == SVR_CHR_OTA_CONTROL_REQUEST_NAK:
+         print("ESP32: OTA request NOT acknowledged.")
+         await queue.put("nak")
+         await client.stop_notify(OTA_CONTROL_UUID)
+   elif data == SVR_CHR_OTA_CONTROL_DONE_ACK:
+         print("ESP32: OTA done acknowledged.")
+         await queue.put("ack")
+         await client.stop_notify(OTA_CONTROL_UUID)
+   elif data == SVR_CHR_OTA_CONTROL_DONE_NAK:
+         print("ESP32: OTA done NOT acknowledged.")
+         await queue.put("nak")
+         await client.stop_notify(OTA_CONTROL_UUID)
+   else:
+         print(f"Notification received: sender: {sender}, data: {data}")
+
+await client.start_notify(
+   OTA_CONTROL_UUID,
+   _ota_notification_handler
+)
+```
+
+To synchronize these events, we use a queue: Every time we receive an acknowledgment put an ack / nak in it. In the main method, we can await this later and react to it. 
+
+After setting up the notifications, we split the firmware into packets and start the OTA process by writing to the OTA Control characteristic. Once the ESP32 acknowledged the OTA, the handler puts an ack to the queue, and the script sends the packets. If the packet transfer is over, we write to the OTA Control characteristic to indicate that the OTA is over. The ESP32 then sends a final notification before rebooting and awaking as a new self. 
+
 # Summary
+
+In this tutorial, we implemented OTA updates via BLE using the NimBLE stack provided by Espressif. We wrote client-side code with Python and the library Bleak. Using this setup, I was able to transfer firmware (500kb) from my Macbook to the ESP32 via BLE in around 1min:30s. Feel free to use the provided code as a template project and let me know what you build with it! 
 
 # References
 
 - Icons / Pictures: 
-   - https://github.com/gnome-colors/gnome-colors
-   - https://www.bluetooth.com/
-   - https://www.az-delivery.de/en
-   - https://pypi.org/project/bleak/
+   - <https://github.com/gnome-colors/gnome-colors>
+   - <https://www.bluetooth.com/>
+   - <https://www.az-delivery.de/en>
+   - <https://pypi.org/project/bleak/>
+- Nimble:
+   - <https://mynewt.apache.org/latest/network/>
+   - <https://github.com/espressif/esp-idf/tree/master/examples/bluetooth/nimble>
+- Bleak:
+   - <https://bleak.readthedocs.io/en/latest/>
+   - <https://github.com/hbldh/bleak>
