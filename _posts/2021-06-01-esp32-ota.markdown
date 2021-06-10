@@ -1,23 +1,23 @@
 ---
 layout: post
 title:  "OTA Update Your ESP32 via BLE Without External Libraries"
-date:   2021-05-26 12:19:02 +0200
+date:   2021-06-01 20:00:00 +0200
 categories: esp32 ble
 ---
 
 ![ESP32 OTA via BLE](/assets/img/esp32_ota/intro.png)
 
 
-Over-the-air update capability is undeniably a must-have feature for any modern IoT product. The benefits are limitless:  You can improve customer satisfaction with your products by providing valuable software improvements and bug fixes after shipment. An already great product getting better over time is an exceptional customer experience. An OTA can even save you from costly recalls. 
+Over-the-air update capability is undeniably a must-have feature for any modern IoT product. The benefits are limitless:  You can improve customer satisfaction with your products by providing valuable software improvements and bug fixes after shipment. An already great product getting better over time is an exceptional customer experience. And most importantly, from an economic perspective: An OTA can even save you from costly recalls, if there are critical bugs in your software. 
 
-In this article, we will implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
+In this article, I will show you how to implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
 
 
 # Project Setup
 
-If you haven't setup a project yet, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. If you have the *hello world* or your own base project running, we can begin adding the BLE functionality to it.
+If you haven't setup a project yet, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. Once you got the *hello world* or your own base project running, we can begin to work on the BLE functionality.
 
-Before we can start working we need to configure the SDK: You can do this with the helper program <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html">menuconfig</a>, or alternatively by creating a file called *sdkconfig.defaults* in the root folder of your project and pasting the following content: 
+First, we need to configure the SDK: You can do this with the helper program <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html">menuconfig</a>, or alternatively by creating a file called *sdkconfig.defaults* in the root folder of your project and pasting the following content: 
 
 ```
 # OTA 
