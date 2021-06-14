@@ -1,6 +1,8 @@
 <header class="site-header">
 
+  {% if jekyll.environment == 'production' and site.google_analytics %}
   {% include cookieconsent.html %}
+  {% endif %}
 
   <div class="wrapper">
     {%- assign default_paths = site.pages | map: "path" -%}

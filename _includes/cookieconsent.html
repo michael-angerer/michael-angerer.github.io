@@ -5,8 +5,8 @@
 <script src="https://cdn.jsdelivr.net/npm/cookieconsent@3/build/cookieconsent.min.js"
     data-cfasync="false"></script>
 
-<!-- Add google analytics -->
-<!--script async src="https://www.googletagmanager.com/gtag/js?id=UA-XXXXXXXX-X"></script-->
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id={{site.google_analytics}}"></script>
 
 <script>
     // Reads the value of a cookie by name or returns empty string
@@ -23,8 +23,8 @@
             dataLayer.push(arguments);
         }
 
-        //gtag('js', new Date());
-        //gtag('config', 'UA-XXXXXXXX-X');
+        gtag('js', new Date());
+        gtag('config', '{{site.google_analytics}}');
     }
 
     // Waiting for the load event

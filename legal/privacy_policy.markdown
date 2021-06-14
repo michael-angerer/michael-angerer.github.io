@@ -5,15 +5,18 @@ permalink: /privacy-policy/
 exclude: true
 ---
 
-# Data Collection
-
-This website does not collect any data.
-
-I host this website on GitHub. Please read their Privacy Policy for more information.
-
 # Cookies
 
 Cookies are files with a small amount of data that are commonly used as anonymous unique identifiers. These are sent to your browser from the websites that you visit and are stored on your device's internal memory. This Service does not use these “cookies” explicitly. However, the we may use third party code and libraries that use “cookies” to collect information and improve their services. You have the option to either accept or refuse these cookies and know when a cookie is being sent to your device. If you choose to refuse our cookies, you may not be able to use some portions of this Service.
+
+# Data Collection
+
+I am using Google Analytics to get to know my audiance better.
+Please read their [Privacy Policy](https://policies.google.com/privacy?hl=en) carefully before using this website.
+
+With Google Analytics I can see how often people visit my website, from where they come, what articles they read, and how long they read articles. This helps me greatly to improve my content and get better at writing articles for you. I do not track you personally, the data is anonymously provided to me and used only for improving my website.
+
+I host this website on GitHub. Please read their [Privacy Policy](https://docs.github.com/en/github/site-policy/github-privacy-statement) for more information.
 
 # Security
 
