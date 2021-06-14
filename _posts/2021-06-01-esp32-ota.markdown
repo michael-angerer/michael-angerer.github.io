@@ -13,7 +13,7 @@ Over-the-air update capability is undeniably a must-have feature for any modern 
 In this article, I will show you how to implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
 
 
-# Project Setup
+## Project Setup
 
 If you haven't setup a project yet, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. Once you got the *hello world* or your own base project running, we can begin to work on the BLE functionality.
 
@@ -36,15 +36,17 @@ CONFIG_BT_NIMBLE_ENABLED=y
 
 You may need to remove the *build* folder and the old *sdkconfig* file first and then build your project for the changes to take effect. This will setup two things: The partition table and the Bluetooth stack. 
 
-## Partition Table
+### Partition Table
 
 The partition table defines how the flash storage of the ESP32 is devided up. In the default configuration the partition table has 3 partitions: *nvs*, *phy_init*, and *factory*. 
 
-The *nvs* partition is used to store user data, in a simple key-value storage. You can use the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html"> non-volatile storage library </a> to save your own data into this partition. Many external libraries (including NimBLE) use this partition for storing data too, so do not forget to include this partition even is you don't use it yourself. 
+The *nvs* partition is used for a simple key-value storage for user data. You can use the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html"> non-volatile storage library </a> to save your own data into this partition. Many external libraries (including NimBLE) use this partition for storing data too, so do not forget to include this partition even is you don't use it yourself. 
 
 The *phy_init* partition contains initilalizing data for the radio hardware (wifi and bluetooth). Don't worry, there is no need for you to touch this partition, in fact you probably shouldn't.
 
-The largest partition is called *factory* and it contains the user program. When booting up an ESP32 the bootloader will run the app flashed onto this partition. What happens if we want to update our application while running from this partition? Well, overwritting the code which is currently running does not seem like a viable approach. To takle this problem we will use a partition table that looks like this: 
+The largest partition is called *factory* and it contains the user program. When booting up an ESP32 the bootloader will run the app flashed onto this partition. 
+
+What would happen now if we update our application while running from the *factory* partition? Well, overwritting the code which is currently running does not seem like a viable approach. To takle this problem we will use a partition table that looks like this: 
 
 <p align="center">
    <img src="/assets/img/esp32_ota/partition_table.png" width="50%"/>
@@ -52,25 +54,27 @@ The largest partition is called *factory* and it contains the user program. When
 
 Instead of having a single app partition, we have 3 app partitions now: *factory*, *ota_0*, and *ota_1*. When we first flash our app onto the ESP32, it will be flashed to the *factory* partition. While running our app from the *factory* partition, we will write the new app received via BLE to the *ota_0* partition. Once the update is completed and verified, we will tell the bootloader to run the app from the *ota_0* partition in the next reboot. 
 
+The information which partition the booloader should select is stored in the *otadata* partition. All entries are written twice, which prevents inconsistencies in case of a power failure. 
+
 Note here, that when you start an update while running the *ota_0* partition it will write the received code to the *ota_1* partition. If you start the update while running the *ota_1* partition it will write the received code to the *ota_0* partition. The app in the *factory* partition will always stay the same, the *factory* partition is never overwritten durring an OTA. If there is a problem with the new app you can always roll back to a previous version or even the factory app. 
 
-## NimBLE
+### NimBLE
 
 In this tutorial we will use the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/bluetooth/nimble/index.html">NimBLE</a> Bluetooth stack. NimBLE is known for using less flash space and RAM compared to the Bluedroid stack. The downside is that you can only use BLE, Bluetooth Classis is not supported. If you are only using BLE in your project, NimBLE is the stack recommended by Espressif.
 
 
-# Bluetooth Low Energy Basics
+## Bluetooth Low Energy Basics
 
 Before we dive into the OTA process we will first review the basics of Bluetooth Low Energy (BLE). BLE has been around for quite a while now and it is integrated with most smartphones on the market today. In a nutshell: BLE is a wireless technology that allows devices to exchange small amounts of data with low power usage. There are devices on the market that can run for months on a single coin cell while sending out data via BLE periodically. In the next paragraphs, we will discuss how BLE enabled devices to discover each other, how they advertise what kind of services (data) they provide, and how the data exchange between them works.  
 
-## Generic Access Profile 
+### Generic Access Profile 
 
 The Generic Access Profile (GAP) is responsible for advertising a device's services and managing connections between devices. There are two roles in GAP: Peripheral and central. The peripheral in most cases is the less powerful device, typically a microcontroller based device running on battery. The central device connects to the peripheral and has typically more processing power (e.g., a PC or a smartphone). In our case, the ESP32 will be the peripheral and your PC will be the central device. 
 
 A peripheral is periodically transmitting small packages (31 bytes of data) to let central devices know about its existence. This process is called advertising.  Central devices scan for peripherals' advertisements and then connect with them to exchange data. During this connection process, the two devices can negotiate the maximum amount of data to be transferred per BLE package, called the maximum transmission unit (MTU). The size of the MTU depends not only on the peripheral but also on the central. Some BLE stacks allow requesting arbitrary MTU sizes, but many have a predefined MTU that you cannot change. I am using a MacBook Pro 2019 with an ESP32 and receive an MTU of size 256 bytes. 
 
 
-## Generic Attribute Profile
+### Generic Attribute Profile
 
 The Generic Attribute Profile (GATT) defines what services and data BLE devices offer. GATT comes into action once the advertisement and connection phase governed by GAP has finished and two devices connect.  It uses the Attribute Protocol (ATT) to define how the data is structured using so-called services and characteristics. 
 
@@ -86,7 +90,7 @@ You can store Services and Characteristics programmatically within the periphera
 
 The peripheral device manages the attribute table, while the central device reads and writes these characteristics. In GATT terms a peripheral is called a server and a central device is called a client. When you specify the attribute table you can set flags that indicate what kind of operations the client can perform on the Characteristics. In our scenario, we will need to use the flags read, write, and notify. The first two are quite self-explanatory. By flagging a Characteristics with notify, the client can subscribe to it. If the Characteristic changes the server will automatically send a notification to the client with the new value.
 
-# Over-the-Air Update Process
+## Over-the-Air Update Process
 
 <p align="center">
    <img src="/assets/img/esp32_ota/overview.png" width="90%"/>
@@ -106,13 +110,13 @@ The Python script splits the firmware binary into packets and consecutively writ
 Now we know how the OTA works in general, let us take a look at the implementation in detail. 
 
 
-# ESP32 Code
+## ESP32 Code
 
 The server-side is implemented using the NimBLE stack. It is the from Espressif recommended way if you are only using BLE. We will create the GATT service table containing all necessary Characteristics, set the access flags, and implement access callbacks for each Characteristic. These callbacks are pieces of code that NimBLE calls once a client tries to read or write to one of the characteristics.  
 
 The ESP32 source code consists of 3 files: main.c, gap.c, and gatt_svr.c. Let's take a look at each of those files and highlight interesting code snippets! 
 
-## Main File
+### Main File
 
 The main.c file is the entry point for your code. ESP32 calls the main function when the system boots up. After every boot, we need to check if the currently running firmware boots for the first time. Take a look at this code: 
 
@@ -138,7 +142,7 @@ First, we must check from which partition we are running. With this information,
 
 In addition to the verification code, you will also find code to set up the NimBLE stack in the main file. The code is quite self-explanatory and consists of stack initialization, callback registration, calling the method to initialize the GATT service table, setting the device name, and finally starting the host task for the stack. 
 
-## GAP
+### GAP
 
 The GAP file implements the code for handling connection events. You can find two callbacks, the GAP event handler, the host task, and the advertisement method here. 
 
@@ -172,7 +176,7 @@ int gap_event_handler(struct ble_gap_event *event, void *arg) {
 
 The final piece of code in this file is the host task. It simply calls a function to run the NimBLE stack, which will only return if you stop NimBLE manually. Watch the stack size of this task! The task may starve while handling larger BLE packets. 
 
-## GATT SVR
+### GATT SVR
 
 The file gatt_svr.c contains most of the OTA code: The GATT Service table definition and its associated read / write callbacks.  Let us take a look at the service table: 
 
@@ -321,7 +325,7 @@ The function esp_ota_end() completes the OTA by verifying the integrity of the n
 
 
 
-# Python Code
+## Python Code
 
 The client-side is implemented in Python using the platform-agnostic BLE library <a href="https://github.com/hbldh/bleak">Bleak</a>. Bleak uses Python's asyncio library for writing asynchronous code, you should take a look at the <a href="https://docs.python.org/3/library/asyncio.html">docs</a> to get familiar if you don't know it. Don't worry you don't need a deep understanding of asynchronous programming to follow this tutorial. 
 
@@ -385,11 +389,11 @@ To synchronize these events, we use a queue: Every time we receive an acknowledg
 
 After setting up the notifications, we split the firmware into packets and start the OTA process by writing to the OTA Control characteristic. Once the ESP32 acknowledged the OTA, the handler puts an ack to the queue, and the script sends the packets. If the packet transfer is over, we write to the OTA Control characteristic to indicate that the OTA is over. The ESP32 then sends a final notification before rebooting and awaking as a new self. 
 
-# Summary
+## Summary
 
 In this tutorial, we implemented OTA updates via BLE using the NimBLE stack provided by Espressif. We wrote client-side code with Python and the library Bleak. Using this setup, I was able to transfer firmware (500kb) from my Macbook to the ESP32 via BLE in around 1min:30s. Feel free to use the provided code as a template project and let me know what you build with it! 
 
-# References
+## References
 
 - Icons / Pictures: 
    - <https://github.com/gnome-colors/gnome-colors>
