@@ -26,6 +26,7 @@ layout: default
       {%- for post in posts -%}
       <li>
         <span class="post-meta">{{ post.date | date: date_format }}</span>
+        <img src="{{ post.thumbnail }}" width="30%" align="left" style="padding-right: 30px;"/>
         <h3>
           <a class="post-link" href="{{ post.url | relative_url }}">
             {{ post.title | escape }}
