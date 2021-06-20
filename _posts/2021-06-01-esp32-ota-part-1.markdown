@@ -2,7 +2,7 @@
 layout: post
 title:  "OTA Update Your ESP32 via BLE Without External Libraries  - Part 1"
 date:   2021-06-01 20:00:00 +0200
-categories: esp32 ble
+categories: esp32 ble ota
 thumbnail: '/assets/img/esp32-ota/thumbnail-part-1.png'
 ---
 
@@ -102,17 +102,19 @@ The peripheral device manages the attribute table, while the central device read
 
 In this tutorial we set up the ESP32's partition table for the OTA process and we reviewed the basics of BLE. Now we understand how the storage of the ESP32 is partitioned, how BLE devices connect, and how we can model data exchange via BLE. 
 
-In the <a href="http://127.0.0.1:4000/esp32/ble/2021/06/08/esp32-ota-part-2.html">next part</a>  we will look at the OTA process itself and how we can implement it on the ESP32. 
+In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/08/esp32-ota-part-2.html">next part</a>  we will look at the OTA process itself and how we can implement it on the ESP32. 
 
+### Parts
 
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 1](http://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-part-1.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 2](http://michaelangerer.dev/esp32/ble/ota/2021/06/08/esp32-ota-part-2.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 3](http://michaelangerer.dev/esp32/ble/ota/2021/06/15/esp32-ota-part-3.html)
 
-## Parts
+### Full Source Code
 
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 1](http://127.0.0.1:4000/esp32/ble/2021/06/01/esp32-ota-part-1.html)
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 2](http://127.0.0.1:4000/esp32/ble/2021/06/08/esp32-ota-part-2.html)
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 3](http://127.0.0.1:4000/esp32/ble/2021/06/15/esp32-ota-part-3.html)
+- [github.com/michael-angerer/esp32_ble_ota](https://github.com/michael-angerer/esp32_ble_ota)
 
-## References
+### References
 
 - Icons / Pictures: 
    - <https://github.com/gnome-colors/gnome-colors>

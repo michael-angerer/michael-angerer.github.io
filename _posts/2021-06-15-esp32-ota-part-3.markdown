@@ -2,7 +2,7 @@
 layout: post
 title:  "OTA Update Your ESP32 via BLE Without External Libraries  - Part 3"
 date:   2021-06-15 20:00:00 +0200
-categories: esp32 ble
+categories: esp32 ble ota
 thumbnail: '/assets/img/esp32-ota/thumbnail-part-3.png'
 ---
 
@@ -11,7 +11,7 @@ thumbnail: '/assets/img/esp32-ota/thumbnail-part-3.png'
 
 In this article series, I will show you how to implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
 
-In the <a href="http://127.0.0.1:4000/esp32/ble/2021/06/01/esp32-ota-part-1.html">first part</a> of this tutorial series we set up the ESP32's partition table for the OTA process and we reviewed the basics of BLE. In the <a href="http://127.0.0.1:4000/esp32/ble/2021/06/08/esp32-ota-part-2.html">last part</a> we took a look at the OTA implementation on the ESP32 side. In this part we will implement the PC side of the OTA process using Python and the library Bleak.
+In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-part-1.html">first part</a> of this tutorial series we set up the ESP32's partition table for the OTA process and we reviewed the basics of BLE. In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/08/esp32-ota-part-2.html">last part</a> we took a look at the OTA implementation on the ESP32 side. In this part we will implement the PC side of the OTA process using Python and the library Bleak.
 
 ## Python Code
 
@@ -111,13 +111,17 @@ If the packet transfer is over, we write to the *OTA Control* characteristic to 
 
 In this tutorial series, we implemented OTA updates via BLE using the NimBLE stack provided by Espressif. We wrote client-side code with Python and the library Bleak. Using this setup, I was able to transfer firmware (500kb) from my Macbook to the ESP32 via BLE in around 1min:30s. Feel free to use the provided code as a template project and let me know what you build with it! 
 
-## Parts
+### Parts
 
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 1](http://127.0.0.1:4000/esp32/ble/2021/06/01/esp32-ota-part-1.html)
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 2](http://127.0.0.1:4000/esp32/ble/2021/06/08/esp32-ota-part-2.html)
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 3](http://127.0.0.1:4000/esp32/ble/2021/06/15/esp32-ota-part-3.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 1](https://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-part-1.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 2](http://michaelangerer.dev/esp32/ble/ota/2021/06/08/esp32-ota-part-2.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 3](http://michaelangerer.dev/esp32/ble/ota/2021/06/15/esp32-ota-part-3.html)
 
-## References
+### Full Source Code
+
+- [github.com/michael-angerer/esp32_ble_ota](https://github.com/michael-angerer/esp32_ble_ota)
+
+### References
 
 - Icons / Pictures: 
    - <https://github.com/gnome-colors/gnome-colors>

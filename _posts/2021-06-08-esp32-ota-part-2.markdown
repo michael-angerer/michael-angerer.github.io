@@ -2,7 +2,7 @@
 layout: post
 title:  "OTA Update Your ESP32 via BLE Without External Libraries - Part 2"
 date:   2021-06-08 20:00:00 +0200
-categories: esp32 ble
+categories: esp32 ble ota
 thumbnail: '/assets/img/esp32-ota/thumbnail-part-2.png'
 ---
 
@@ -10,7 +10,7 @@ thumbnail: '/assets/img/esp32-ota/thumbnail-part-2.png'
 
 In this article series, I will show you how to implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
 
-In the <a href="http://127.0.0.1:4000/esp32/ble/2021/06/01/esp32-ota-part-1.html">first part</a> of this tutorial series we set up the ESP32's partition table for the OTA process and we reviewed the basics of BLE. In this part we will take a look at the OTA process itself and how we can implement it on the ESP32.
+In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-part-1.html">first part</a> of this tutorial series we set up the ESP32's partition table for the OTA process and we reviewed the basics of BLE. In this part we will take a look at the OTA process itself and how we can implement it on the ESP32.
 
 ## Over-the-Air Update Process
 
@@ -263,15 +263,19 @@ The function *esp_ota_end()* completes the OTA by verifying the integrity of the
 
 ## Summary
 
-In this tutorial we implemented the OTA update process on the ESP32: We created a service table containing two characteristics for the OTA, implemented callbacks to react to reads and writes to this characteristics, and wrote the OTA logic itself. In the <a href="http://127.0.0.1:4000/esp32/ble/2021/06/15/esp32-ota-part-3.html">next part</a>  we will implement the OTA code of the client side using Python. 
+In this tutorial we implemented the OTA update process on the ESP32: We created a service table containing two characteristics for the OTA, implemented callbacks to react to reads and writes to this characteristics, and wrote the OTA logic itself. In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/15/esp32-ota-part-3.html">next part</a>  we will implement the OTA code of the client side using Python. 
 
-## Parts
+### Parts
 
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 1](http://127.0.0.1:4000/esp32/ble/2021/06/01/esp32-ota-part-1.html)
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 2](http://127.0.0.1:4000/esp32/ble/2021/06/08/esp32-ota-part-2.html)
-- [OTA Update Your ESP32 via BLE Without External Libraries - Part 3](http://127.0.0.1:4000/esp32/ble/2021/06/15/esp32-ota-part-3.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 1](http://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-part-1.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 2](http://michaelangerer.dev/esp32/ble/ota/2021/06/08/esp32-ota-part-2.html)
+- [OTA Update Your ESP32 via BLE Without External Libraries - Part 3](http://michaelangerer.dev/esp32/ble/ota/2021/06/15/esp32-ota-part-3.html)
 
-## References
+### Full Source Code
+
+- [github.com/michael-angerer/esp32_ble_ota](https://github.com/michael-angerer/esp32_ble_ota)
+
+### References
 
 - Icons / Pictures: 
    - <https://github.com/gnome-colors/gnome-colors>
