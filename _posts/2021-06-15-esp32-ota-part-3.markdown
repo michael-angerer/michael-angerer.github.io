@@ -17,8 +17,6 @@ In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-par
 
 The client-side is implemented in Python using the platform-agnostic BLE library <a href="https://github.com/hbldh/bleak">Bleak</a>. Bleak uses Python's asyncio library for writing asynchronous code, you should take a look at the <a href="https://docs.python.org/3/library/asyncio.html">docs</a> to get familiar if you don't know it. Don't worry you don't need a deep understanding of asynchronous programming to follow this tutorial. 
 
-**Beware: The property to retrieve the MTU size has only recently been added to Bleak. Please use a version greater than 0.11.0 or the <a href="https://bleak.readthedocs.io/en/latest/installation.html#from-sources">developer</a> branch for this tutorial.**
-
 The script is quite self-explanatory: First, it scans for BLE devices and searches for a device name esp32: 
 
 ```Python
@@ -34,9 +32,10 @@ Once it finds the ESP32, it calculates the packet size and writes it to the *OTA
 ```Python
 async with BleakClient(esp32) as client:
 
-   # note this only works with Bleak >= 0.12.0
+   # compute the packet size
    packet_size = (client.mtu_size - 3)
 
+   # write the packet size to OTA Data
    print(f"Sending packet size: {packet_size}.")
    await client.write_gatt_char(
       OTA_DATA_UUID,
