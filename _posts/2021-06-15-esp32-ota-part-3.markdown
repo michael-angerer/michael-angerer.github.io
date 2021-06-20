@@ -75,7 +75,37 @@ await client.start_notify(
 
 To synchronize these events, we use a queue: Every time we receive an acknowledgment put an *ack* / *nak* in it. In the main method, we can await this later and react to it. 
 
-After setting up the notifications, we split the firmware into packets and start the OTA process by writing to the *OTA Control* characteristic. Once the ESP32 acknowledged the OTA, the handler puts an *ack* to the queue, and the script sends the packets. If the packet transfer is over, we write to the *OTA Control* characteristic to indicate that the OTA is over. The ESP32 then sends a final notification before rebooting and awaking as a new self. 
+After setting up the notifications, we split the firmware into packets and start the OTA process by writing to the *OTA Control* characteristic. Once the ESP32 acknowledged the OTA, the handler puts an *ack* to the queue, and the script sends the packets: 
+
+```Python
+# split the firmware into packets
+firmware = []
+with open("esp32_ble_ota.bin", "rb") as file:
+   while junk := file.read(packet_size):
+         firmware.append(junk)
+
+# write the request OP code to OTA Control
+print("Sending OTA request.")
+await client.write_gatt_char(
+   OTA_CONTROL_UUID,
+   SVR_CHR_OTA_CONTROL_REQUEST
+)
+
+# wait for the response
+await asyncio.sleep(1)
+if await queue.get() == "ack":
+   # sequentially write all packets to OTA data
+   for i, pkg in enumerate(firmware):
+         print(f"Sending packet {i+1}/{len(firmware)}.")
+         await client.write_gatt_char(
+            OTA_DATA_UUID,
+            pkg,
+            response=True
+         )
+
+```
+
+If the packet transfer is over, we write to the *OTA Control* characteristic to indicate that the OTA is over. The ESP32 then sends a final notification before rebooting and awaking as a new self. 
 
 ## Summary
 

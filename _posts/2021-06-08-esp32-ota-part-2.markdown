@@ -25,7 +25,7 @@ After reviewing the basics, we can talk about the OTA update implementation.  Th
 </p>
 
 
-The OTA process kicks off once the PC sends an OTA request to the ESP32 by writing to the *OTA Control* characteristic. During the GAP connection process, the PC and ESP32 negotiate the maximum MTU size. The packet size is calculated based on the MTU size minus 3 bytes for ATT-related overhead. The PC writes the packet size to the *OTA Data* characteristic, and the ESP32 responds with an acknowledgment notification. 
+During the GAP connection process, the PC and ESP32 negotiate the maximum MTU size. The packet size is calculated based on the MTU size minus 3 bytes for ATT-related overhead. The PC writes the packet size to the *OTA Data* characteristic. The OTA process kicks off when the PC sends an OTA request to the *OTA Control* characteristic, to which the ESP32 responds with an acknowledgement.
 
 The Python script splits the firmware binary into packets and consecutively writes them to the *OTA Data* characteristic.  The PC signals that the OTA finished by writing to the *OTA Control* characteristic, and the ESP32 responds with an acknowledgment notification. 
 
@@ -64,7 +64,7 @@ if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
 }
 ```
 
-First, we must check from which partition we are running. With this information, we can retrieve the *OTA state*. After flashing new firmware, ESP marks *OTA state* as *ESP_OTA_IMG_NEW*. If we boot this image the state changes to *ESP_OTA_IMG_PENDING_VERIFY*. During the first boot of a new image, we must run a diagnostic check to verify that the new firmware is functional. If the diagnostic runs successfully we can mark the image as *ESP_OTA_IMG_VALID*. If the diagnostics fail or we reboot the system without setting the image valid, the image will be marked invalid. The bootloader won't select this image for the next boot and switch back to the old partition (if possible). You can find more information about this rollback process 
+First, we must check from which partition we are running. With this information, we can retrieve the *OTA state*. After flashing new firmware, the ESP32 marks the *OTA state* as *ESP_OTA_IMG_NEW*. If we boot this image the state changes to *ESP_OTA_IMG_PENDING_VERIFY*. During the first boot of a new image, we must run a diagnostic check to verify that the new firmware is functional. If the diagnostic runs successfully we can mark the image as *ESP_OTA_IMG_VALID*. If the diagnostics fail or we reboot the system without setting the image valid, the image will be marked invalid. The bootloader won't select this image for the next boot and switch back to the old partition (if possible). You can find more information about this rollback process 
 <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/ota.html#app-ota-state">here</a>.
 
 In addition to the verification code, you will also find code to set up the NimBLE stack in the main file. The code is quite self-explanatory and consists of stack initialization, callback registration, calling the method to initialize the GATT service table, setting the device name, and finally starting the host task for the stack. 
@@ -185,7 +185,7 @@ Most of this code is boilerplate and not OTA specific. The only OTA-related piec
 // OTA request
 ESP_LOGI(LOG_TAG_GATT_SVR, "OTA has been requested via BLE.");
 
-// get the next free OTA partition
+// get the next OTA partition
 update_partition = esp_ota_get_next_update_partition(NULL);
 
 // start the ota update
@@ -205,7 +205,7 @@ ESP_LOGI(LOG_TAG_GATT_SVR, "OTA request acknowledgement has been sent.");
 [...]
 ```
 
-First, we retrieve the target partition to which we will write the received packets. We start the OTA process by calling *esp_ota_begin()*.  Calling this method tells the ESP32 to prepare for the OTA. The function provides us with an update handle. During the update, we will use this handle for sequentially writing the received packets to the partition. Recall, that the client writes the size of the packets to the *OTA Data characteristic*. We get the packet size by reading and combining the first two bytes of the received array.  Finally, the function sends a notification to the client, letting it know that the OTA is acknowledged (or not).  
+First, we retrieve the target partition to which we will write the received packets. We start the OTA process by calling *esp_ota_begin()*.  Calling this method tells the ESP32 to prepare for the OTA. The function provides us with an update handle. During the update, we will use this handle for sequentially writing the received packets to the partition. Recall, that the client writes the size of the packets to the *OTA Data* characteristic. We get the packet size by reading and combining the first two bytes of the received array.  Finally, the function sends a notification to the client, letting it know that the OTA is acknowledged (or not).  
 
 The *OTA Data* characteristic has its own callback. The function checks if the update process is started and if so it writes all received packets to the partition with: 
 
@@ -213,7 +213,7 @@ The *OTA Data* characteristic has its own callback. The function checks if the u
 esp_ota_write(update_handle, (const void *)gatt_svr_chr_ota_data_val, packet_size);
 ```
 
-After transferring all packets, the PC will write to the *OTA Control characteristic* indicating completion of the OTA. In response, the ESP32 executes the following code:
+After transferring all packets, the PC will write to the *OTA Control* characteristic indicating completion of the OTA. In response, the ESP32 executes the following code:
 
 ```c
 // end the OTA and start validation

@@ -20,7 +20,7 @@ The first part of the tutorial series covers the project setup and the basics of
 
 If you haven't setup a project yet, I highly recommend you to read the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/">getting started</a> guide first. Once you've got the *hello world* or your own base project running, we can begin to work on the BLE functionality.
 
-First, we need to configure the SDK: You can do this with the helper program <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html">menuconfig</a>, oIN r alternatively by creating a file called *sdkconfig.defaults* in the root folder of your project and pasting the following content: 
+First, we need to configure the SDK: You can do this with the helper program <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/kconfig.html">menuconfig</a>, or alternatively by creating a file called *sdkconfig.defaults* in the root folder of your project and pasting the following content: 
 
 ```
 # OTA 
@@ -70,7 +70,7 @@ In this tutorial we will use the <a href="https://docs.espressif.com/projects/es
 
 Before we dive into the OTA process we will first review the basics of Bluetooth Low Energy (BLE). BLE has been around for quite a while now and it is integrated with most smartphones on the market today. 
 
-In a nutshell: BLE is a wireless technology that allows devices to exchange small amounts of data with low power usage. There are devices on the market that can run for months on a single coin cell while periodically sending data via BLE. In the next paragraphs, we will discuss how BLE enabled devices to discover each other, how they advertise what kind of services (data) they provide, and how the data exchange between them works.  
+In a nutshell: BLE is a wireless technology that allows devices to exchange small amounts of data with low power usage. There are devices on the market that can run for months on a single coin cell while periodically sending data via BLE. In the next paragraphs, we will discuss how BLE enables devices to discover each other, how they advertise what kind of services (data) they provide, and how the data exchange between them works.  
 
 ### Generic Access Profile 
 
