@@ -21,10 +21,8 @@
 title: Michael Angerer
 email: contact@michaelangerer.dev
 description: >- # this means to ignore newlines until "baseurl:"
-  Hi, I am Michael. On this website, I write about my projects, 
-  tutorials, and other topics I find interesting. 
-  Focusing on embedded systems design (software and hardware), 
-  IoT, and app development (Flutter). 
+  Embedded Systems projects, tutorials, IoT, ESP32, Zephyr, and more. 
+
 baseurl: "" # the subpath of your site, e.g. /blog
 url: "" # the base hostname & protocol for your site, e.g. http://example.com
 github_username:  michael-angerer
