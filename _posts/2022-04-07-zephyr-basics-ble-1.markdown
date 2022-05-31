@@ -10,9 +10,9 @@ Welcome back to Zephyr basics! In the last post, we took a look at Zephyr's GPIO
 
 BLE is one of the most common communications standards for smart devices. It enables the exchange of information with low cost and low power. Thanks to the wide availability of smartphones, there are billions of BLE-enabled devices on the market. If you learn how to program your own, you unlock a valuable skill for yourself.  
 
-Zephyr is built with BLE in mind and provides excellent APIs. Let us together review the basics of BLE and then dive into the Zephyr APIs! We will first implement the Smart LED. After reading this post, you will be able to program an ESP32 to be a remote-controllable LED (a peripheral in BLE terms). You can use any BLE app from the AppStore to turn the LED on or off. 
+Zephyr is built with BLE in mind and provides excellent APIs. Let us together review the basics of BLE and then dive into the Zephyr APIs! We will start by implementing a peripheral. After reading this post, you will be able to program an ESP32 to be a remote-controllable Smart LED. You can use any BLE app from the AppStore to turn the LED on or off. 
 
-In a future post, we will program a second ESP32 to make the Smart Button!
+In a future post, we will program a second ESP32 to make a Smart Button!
 
 ## Prerequisites
 
@@ -27,9 +27,9 @@ I am using two ESP32 Dev Kit C4 for this tutorial, but you may use any other BLE
 
 ### Generic Access Profile (GAP)
 
-How does BLE work? In most cases, you have a small low-power device communicating with a more capable one. For example, temperature sensors distributed in your home periodically send their measurements to your central heating. In this scenario the communication is one-way. The central heating does not need to send data back. It is sufficient if the temperature sensors periodically send their measurements and the central heating reads them. The roles are clearly defined: Sensors are broadcasters, while the central heating is an observer. Broadcaster and observer are two roles of the Generic Access Profile (GAP). GAP is the layer in the BLE stack that specifies how devices discover each other and interact.
+How does BLE work? In most cases, you have a small low-power device communicating with a more capable one. For example, temperature sensors distributed in your home periodically send their measurements to your central heating. In this scenario the communication is one-way. The central heating does not need to send data back. It is sufficient if the temperature sensors periodically send their measurements and the central heating reads them. The roles are clearly defined: Sensors are *Broadcasters*, while the central heating is an *Observer*. Broadcaster and observer are two roles of the Generic Access Profile (GAP). GAP is the layer in the BLE stack that specifies how devices discover each other and interact.
 
-In this tutorial, we will need two other roles: *Central* and *peripheral*. Our Smart LED does not need to periodically broadcast that it is on or off. Nevertheless, it must let other devices know of its existence and that it provides a service to read and set the state of the LED. This process is called advertising: The Smart LED periodically sends out small packages of data containing information such as the device address, what services it offers, and whether it allows a central to connect or not. This process is typical for a peripheral device. Our Smart Button (in the role of a central) scans for the LED advertisements. If it finds the Smart LED it parses the advertisements for the proper service UUID. Once it finds the right one, it establishes a connection. With an established connection, the Smart Button can toggle the state of the Smart LED. 
+In this tutorial, we will need two other roles: *Central* and *Peripheral*. Our Smart LED does not need to periodically broadcast that it is on or off. Nevertheless, it must let other devices know of its existence and that it provides a service to read and set the state of the LED. This process is called advertising: The Smart LED periodically sends out small packages of data containing information such as the device address, what services it offers, and whether it allows a central to connect or not. This process is typical for a peripheral device. Our Smart Button (in the role of a central) scans for the LED advertisements. If it finds the Smart LED it parses the advertisements for the proper service UUID. Once it finds the right one, it establishes a connection. With an established connection, the Smart Button can toggle the state of the Smart LED. 
 
 ### Generic Attribute Profile (GATT)
 
@@ -37,7 +37,7 @@ After the advertisement and connection phase, governed by GAP has finished and t
 
 Services and characteristics are programmatically stored within a peripheral in form of a look-up table (called *Attribute Table*). For each entry, you need to specify a *Universal Unique Identifier (UUID)*, permissions flags (read, write, notify, …), and callback functions. You can either check out the list of pre-defined characteristics <a href="https://www.bluetooth.com/specifications/assigned-numbers/">here</a>  or create custom 128-bit UUIDs for your own needs.
 
-**Attention:** GATT uses different terms than GAP! In GATT the Smart LED (our peripheral) is called a *server* and the Smart Button (our central) is called a *client*!
+**Attention:** GATT uses different terms than GAP! In GATT the Smart LED (our peripheral) is called a *Server* and the Smart Button (our central) is called a *Client*!
 
 ## Peripheral - Smart LED
 
@@ -73,7 +73,7 @@ CONFIG_BT_DEVICE_NAME="Smart LED"
 
 With the devicetree overlay, we can reference the LED in our program using the name *led0*, instead of hard coding the pin number. The following code does all the hardware setup: 
 
-```C
+```c
 #include <drivers/gpio.h>
 #include <zephyr.h>
 
@@ -101,7 +101,7 @@ First, we fetch the device specifications of the LED (sounds fancy but in this c
 After the hardware setup, the Smart LED starts to periodically advertise the *LED State's* UUID to let the Smart Button know about its existence. Before we can do this, we need to specify UUIDs for the service and the characteristic: 
 
 
-```C
+```c
 // Service and Characteristics UUIDs
 static struct bt_uuid_128 led_state_char_uuid = BT_UUID_INIT_128(
     BT_UUID_128_ENCODE(0x9c85a726, 0xb7f1, 0x11ec, 0xb909, 0x0242ac120002));
@@ -167,7 +167,7 @@ You can even connect to it, but you won't be able to do anything. Let's fix that
 
 Zephyr allows us to register callback functions to react if a central device wants to connect to (or disconnect from) our peripheral: 
 
-```C
+```c
 static void connected(struct bt_conn *conn, uint8_t err) {
   if (err) {
     printk("Connection failed (err 0x%02x)\n", err);
@@ -192,7 +192,7 @@ Simple create the two callbacks with the appropriate function signatures and reg
 
 The attribute table is created by Zephyr, you can define and register a service using the macro *BT_GATT_SERVICE_DEFINE*:
 
-```C
+```c
 BT_GATT_SERVICE_DEFINE(
     led_svc, BT_GATT_PRIMARY_SERVICE(&led_svc_uuid),
     BT_GATT_CHARACTERISTIC(&led_state_char_uuid.uuid,
@@ -209,7 +209,7 @@ To specify the characteristic you pass in the UUID, characteristic properties, a
 
 Let's take a look at the callbacks, starting with the one that gets fired if a characteristic is read:
 
-```C
+```c
 static ssize_t read_led_state(struct bt_conn *conn,
                              const struct bt_gatt_attr *attr, void *buf,
                              uint16_t len, uint16_t offset) {
@@ -230,7 +230,7 @@ The function receives quite a lot of parameters! Let's go through them:
 
 For our use case, we are only interested in *attr*, from which we get a pointer to the user data the client wants to read. This pointer is stored in the local variable *val*, we print its current value, and pass it to the function *bt_gatt_attr_read()*. This helper function takes the value and copies it to the buffer.
 
-Note that we don't even need to use the *attr* parameter. We only have one characteristic, so we could directly pass the value of *led_state* into the function and ignore all parameters. 
+Note that we don't even need to use the *attr* parameter. We only have one characteristic, so we could directly pass our global variable *led_state* into the function and ignore all parameters. 
 
 So why do you have all these parameters? You could write a more general read function and use it for more than one characteristic! The parameter *attr* contains the UUID of the characteristic the callback was called for as a member. Using this information you can then pass different values to the function *bt_gatt_attr_read()*. 
 
@@ -238,7 +238,7 @@ So why do you have all these parameters? You could write a more general read fun
 
 Finally, let's take a look at the callback that gets fired if a characteristic is written to:
 
-```C
+```c
 static ssize_t write_led_state(struct bt_conn *conn,
                               const struct bt_gatt_attr *attr, const void *buf,
                               uint16_t len, uint16_t offset, uint8_t flags) {
@@ -284,6 +284,7 @@ In the next blog post, we will continue the Smart Button. Stay tuned!
 ### Parts
 
 - [Zephyr Basics: Bluetooth Low Energy (BLE) - Part 1: Peripheral](http://michaelangerer.dev/zephyr/2022/04/07/zephyr-basics-ble-1.html)
+- [Zephyr Basics: Bluetooth Low Energy (BLE) - Part 2: Central](http://michaelangerer.dev/zephyr/2022/05/31/zephyr-basics-ble-2.html)
 
 ### Full Source Code
 
