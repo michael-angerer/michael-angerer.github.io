@@ -3,7 +3,7 @@ layout: post
 title: "A Minimal ESP32-based Circuit"
 date: 2021-09-10 20:00:00 +0200
 categories: esp32 pcb
-published: false
+published: true
 thumbnail: "/assets/img/minimal-esp32-pcb/thumbnail.png"
 ---
 
@@ -28,7 +28,7 @@ Besides the ESP32-Pico-D4 you only need two capacitors and six header pins. The 
    <img src="/assets/img/minimal-esp32-pcb/esp32-pico-d4-schematic.png" width="80%"/>
 </p>
 
-Getting the ESP32-Pico-D4 to run is surprisingly simple: You need to connect 3.3V (VCC) to the proper input pins (1, 3, 4) and ground (GND) to the plane on the bottom of the chip. The best way to connect GND is to create multiple <a href="https://en.wikipedia.org/wiki/Via_(electronics)">vias</a> below the chip, which also helps with thermal conduction. If you now apply 3.3V to pin 9 (EN), the ESP32 will boot up.
+Getting the ESP32-Pico-D4 to run is surprisingly simple: You need to connect 3.3V (VCC) to the proper input pins (1, 3, 4, 37, [Optional: 19, 26]) and ground (GND) to the plane on the bottom of the chip. The best way to connect GND is to create multiple <a href="https://en.wikipedia.org/wiki/Via_(electronics)">vias</a> below the chip, which also helps with thermal conduction. If you now apply 3.3V to pin 9 (EN), the ESP32 will boot up.
 
 ## How to Programm your Board
 
