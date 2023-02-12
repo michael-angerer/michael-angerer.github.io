@@ -1,23 +1,23 @@
 ---
 layout: post
-title:  "OTA Update Your ESP32 via BLE Without External Libraries  - Part 3"
-date:   2021-06-15 20:00:00 +0200
+title: "OTA Update Your ESP32 via BLE Without External Libraries  - Part 3"
+date: 2021-06-15 20:00:00 +0200
 categories: esp32 ble ota
-thumbnail: '/assets/img/esp32-ota/thumbnail-part-3.png'
+thumbnail: "/assets/img/esp32-ota/thumbnail-part-3.png"
+description: "How to implement over the air updates for ESP32 using Bluetooth Low Energy (BLE). Using the NimBLE stack and Python's Bleak library."
 ---
 
 ![ESP32 OTA via BLE](/assets/img/esp32-ota/intro.png)
 
-
-In this article series, I will show you how to implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects. 
+In this article series, I will show you how to implement OTA updates via BLE for the ESP32 without external libraries. We will use the NimBLE stack provided by the ESP-IDF for implementing the OTA code. The code is not compatible with the Arduino framework, but the concept is transferable. You can find the complete source code on <a href="https://github.com/michael-angerer/esp32_ble_ota">github</a> and use it as a template for your own projects.
 
 In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/01/esp32-ota-part-1.html">first part</a> of this tutorial series we set up the ESP32's partition table for the OTA process and we reviewed the basics of BLE. In the <a href="http://michaelangerer.dev/esp32/ble/ota/2021/06/08/esp32-ota-part-2.html">last part</a> we took a look at the OTA implementation on the ESP32 side. In this part we will implement the PC side of the OTA process using Python and the library Bleak.
 
 ## Python Code
 
-The client-side is implemented in Python using the platform-agnostic BLE library <a href="https://github.com/hbldh/bleak">Bleak</a>. Bleak uses Python's asyncio library for writing asynchronous code, you should take a look at the <a href="https://docs.python.org/3/library/asyncio.html">docs</a> to get familiar if you don't know it. Don't worry you don't need a deep understanding of asynchronous programming to follow this tutorial. 
+The client-side is implemented in Python using the platform-agnostic BLE library <a href="https://github.com/hbldh/bleak">Bleak</a>. Bleak uses Python's asyncio library for writing asynchronous code, you should take a look at the <a href="https://docs.python.org/3/library/asyncio.html">docs</a> to get familiar if you don't know it. Don't worry you don't need a deep understanding of asynchronous programming to follow this tutorial.
 
-The script is quite self-explanatory: First, it scans for BLE devices and searches for a device name esp32: 
+The script is quite self-explanatory: First, it scans for BLE devices and searches for a device name esp32:
 
 ```Python
 esp32 = None
@@ -27,7 +27,7 @@ for device in devices:
       esp32 = device
 ```
 
-Once it finds the ESP32, it calculates the packet size and writes it to the *OTA data* characteristic:
+Once it finds the ESP32, it calculates the packet size and writes it to the _OTA data_ characteristic:
 
 ```Python
 async with BleakClient(esp32) as client:
@@ -44,7 +44,7 @@ async with BleakClient(esp32) as client:
    )
 ```
 
-Before we can send the packets, we will subscribe to the *OTA Control* characteristic. The method expects the UUID and a handler. The handler executes every time we receive a notification from the ESP32:
+Before we can send the packets, we will subscribe to the _OTA Control_ characteristic. The method expects the UUID and a handler. The handler executes every time we receive a notification from the ESP32:
 
 ```Python
 async def _ota_notification_handler(sender: int, data: bytearray):
@@ -72,9 +72,9 @@ await client.start_notify(
 )
 ```
 
-To synchronize these events, we use a queue: Every time we receive an acknowledgment put an *ack* / *nak* in it. In the main method, we can await this later and react to it. 
+To synchronize these events, we use a queue: Every time we receive an acknowledgment put an _ack_ / _nak_ in it. In the main method, we can await this later and react to it.
 
-After setting up the notifications, we split the firmware into packets and start the OTA process by writing to the *OTA Control* characteristic. Once the ESP32 acknowledged the OTA, the handler puts an *ack* to the queue, and the script sends the packets: 
+After setting up the notifications, we split the firmware into packets and start the OTA process by writing to the _OTA Control_ characteristic. Once the ESP32 acknowledged the OTA, the handler puts an _ack_ to the queue, and the script sends the packets:
 
 ```Python
 # split the firmware into packets
@@ -104,11 +104,11 @@ if await queue.get() == "ack":
 
 ```
 
-If the packet transfer is over, we write to the *OTA Control* characteristic to indicate that the OTA is over. The ESP32 then sends a final notification before rebooting and awaking as a new self. 
+If the packet transfer is over, we write to the _OTA Control_ characteristic to indicate that the OTA is over. The ESP32 then sends a final notification before rebooting and awaking as a new self.
 
 ## Summary
 
-In this tutorial series, we implemented OTA updates via BLE using the NimBLE stack provided by Espressif. We wrote client-side code with Python and the library Bleak. Using this setup, I was able to transfer firmware (500kb) from my Macbook to the ESP32 via BLE in around 1min:30s. Feel free to use the provided code as a template project and let me know what you build with it! 
+In this tutorial series, we implemented OTA updates via BLE using the NimBLE stack provided by Espressif. We wrote client-side code with Python and the library Bleak. Using this setup, I was able to transfer firmware (500kb) from my Macbook to the ESP32 via BLE in around 1min:30s. Feel free to use the provided code as a template project and let me know what you build with it!
 
 ### Parts
 
@@ -122,11 +122,11 @@ In this tutorial series, we implemented OTA updates via BLE using the NimBLE sta
 
 ### References
 
-- Icons / Pictures: 
-   - <https://github.com/gnome-colors/gnome-colors>
-   - <https://www.bluetooth.com/>
-   - <https://www.az-delivery.de/en>
-   - <https://pypi.org/project/bleak/>
+- Icons / Pictures:
+  - <https://github.com/gnome-colors/gnome-colors>
+  - <https://www.bluetooth.com/>
+  - <https://www.az-delivery.de/en>
+  - <https://pypi.org/project/bleak/>
 - Bleak:
-   - <https://bleak.readthedocs.io/en/latest/>
-   - <https://github.com/hbldh/bleak>
+  - <https://bleak.readthedocs.io/en/latest/>
+  - <https://github.com/hbldh/bleak>

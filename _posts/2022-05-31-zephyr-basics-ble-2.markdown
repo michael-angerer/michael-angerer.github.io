@@ -1,9 +1,10 @@
 ---
 layout: post
-title:  "Zephyr Basics: Bluetooth Low Energy (BLE) - Part 2: Central"
-date:   2022-05-31 20:00:00 +0200
+title: "Zephyr Basics: Bluetooth Low Energy (BLE) - Part 2: Central"
+date: 2022-05-31 20:00:00 +0200
 categories: zephyr
-thumbnail: '/assets/img/zephyr-basics-ble-2/thumbnail.png'
+thumbnail: "/assets/img/zephyr-basics-ble-2/thumbnail.png"
+description: "Learn the basics of Bluetooth Low Energy (BLE) with Zephyr. In this article I will show you how to create a BLE central."
 ---
 
 <p align="center">
@@ -16,7 +17,7 @@ In the following paragraphs, I will lead you through the hardware setup, the sou
 
 ## Hardware Setup
 
-I am using two ESP32 Dev Kit C4 for this tutorial, but you may use any other BLE-enabled board/controller supporting Zephyr. If you haven't already, please read <a href="https://michaelangerer.dev/zephyr/2021/12/21/zephyr-basics-gpio.html">my post</a>  about GPIOs first. I covered LEDs, buttons, and devicetree overlays. To follow along, connect a pushbutton with a pull-down resistor to the Smart Button and an LED with a resistor to the Smart LED: 
+I am using two ESP32 Dev Kit C4 for this tutorial, but you may use any other BLE-enabled board/controller supporting Zephyr. If you haven't already, please read <a href="https://michaelangerer.dev/zephyr/2021/12/21/zephyr-basics-gpio.html">my post</a> about GPIOs first. I covered LEDs, buttons, and devicetree overlays. To follow along, connect a pushbutton with a pull-down resistor to the Smart Button and an LED with a resistor to the Smart LED:
 
 <p align="center">
    <img src="/assets/img/zephyr-basics-ble-2/schematic.png" width="90%"/>
@@ -25,6 +26,7 @@ I am using two ESP32 Dev Kit C4 for this tutorial, but you may use any other BLE
 By now you should know the drill! Create the following two files in the root folder of your project:
 
 **esp32.overlay:**
+
 ```
 / {
 	buttons {
@@ -36,7 +38,9 @@ By now you should know the drill! Create the following two files in the root fol
 	};
 };
 ```
+
 **prj.conf:**
+
 ```
 CONFIG_GPIO=y
 CONFIG_BT=y
@@ -45,7 +49,7 @@ CONFIG_BT_GATT_CLIENT=y
 CONFIG_EVENTS=y
 ```
 
-With the devicetree overlay, we can reference the button in our program using the name *button0*, instead of hard coding the pin number. The following code does all the hardware setup: 
+With the devicetree overlay, we can reference the button in our program using the name _button0_, instead of hard coding the pin number. The following code does all the hardware setup:
 
 ```c
 #include <drivers/gpio.h>
@@ -67,9 +71,9 @@ void main(void) {
 
 ```
 
-The setup is similar to the Smart LED: First, we fetch the device specifications of the Button (the pin number) and store it in the static variable *button*. In the main function, we first check if the button device is ready (in a real production app you would need to handle the error case as well!). Afterward, we set the pin as input and and configure it to raise an interrupt on rising edge.
+The setup is similar to the Smart LED: First, we fetch the device specifications of the Button (the pin number) and store it in the static variable _button_. In the main function, we first check if the button device is ready (in a real production app you would need to handle the error case as well!). Afterward, we set the pin as input and and configure it to raise an interrupt on rising edge.
 
-Every time the button is pressed our main program will stop and the code associated with (or attached to) the interrupt will run. You don't need to setup the interrupt yourself, Zephyr can do it for your. Add the following to your main function after the hardware setup: 
+Every time the button is pressed our main program will stop and the code associated with (or attached to) the interrupt will run. You don't need to setup the interrupt yourself, Zephyr can do it for your. Add the following to your main function after the hardware setup:
 
 ```c
 // setup the button press callback
@@ -77,7 +81,7 @@ gpio_init_callback(&button_cb_data, button_callback, BIT(button.pin));
 gpio_add_callback(button.port, &button_cb_data);
 ```
 
-This will configure the interrupt to run the function *button_callback* each time the button is pressed. The callback and the associated data must be declared before the main function: 
+This will configure the interrupt to run the function _button_callback_ each time the button is pressed. The callback and the associated data must be declared before the main function:
 
 ```c
 #define BUTTON_TIMEOUT_MS 250
@@ -96,31 +100,31 @@ static void button_callback(const struct device *dev, struct gpio_callback *cb,
 }
 ```
 
-In the callback, we use a simple timing-based debounce method. Every time the button is pressed, we fetch the uptime and compare it with the uptime stored when the button was pressed the last time. Only presses with a time difference of more than 250ms will be considered valid presses. Once a valid press is detected, the function *ble_toggle_led()* is called.
+In the callback, we use a simple timing-based debounce method. Every time the button is pressed, we fetch the uptime and compare it with the uptime stored when the button was pressed the last time. Only presses with a time difference of more than 250ms will be considered valid presses. Once a valid press is detected, the function _ble_toggle_led()_ is called.
 
 ## Source Structure
 
-Where does the function *ble_toggle_led()* come from? This time we will split our project into 3 files: The code you just saw is located in *main.c* and takes care of the button hardware setup. The BLE-related code is located in the files *ble.c* and *ble.h*. 
+Where does the function _ble_toggle_led()_ come from? This time we will split our project into 3 files: The code you just saw is located in _main.c_ and takes care of the button hardware setup. The BLE-related code is located in the files _ble.c_ and _ble.h_.
 
-The header exposes two functions: *ble_setup()* and *ble_toggle_led()*  for our main program to use. The setup function must be called once at the end of the *main* function and the toggle function must be called each time you want to toggle the LED. 
+The header exposes two functions: _ble_setup()_ and _ble_toggle_led()_ for our main program to use. The setup function must be called once at the end of the _main_ function and the toggle function must be called each time you want to toggle the LED.
 
-The implementation of the functions is in the source file *ble.c*. It contains all the necessary data and logic for our Smart Button peripheral. Before we dive into the code, let us look at the logic in form of a state machine.  
+The implementation of the functions is in the source file _ble.c_. It contains all the necessary data and logic for our Smart Button peripheral. Before we dive into the code, let us look at the logic in form of a state machine.
 
 ## State Machine
 
-What exactly must our Smart Button do? If you press the button, it searches for the Smart LED, connects to it, and toggles the state of the LED. Sounds quite simple? Here is the full state machine which we will implement: 
+What exactly must our Smart Button do? If you press the button, it searches for the Smart LED, connects to it, and toggles the state of the LED. Sounds quite simple? Here is the full state machine which we will implement:
 
 <p align="center">
    <img src="/assets/img/zephyr-basics-ble-2/states.png" width="80%"/>
 </p>
 
-The logic starts on button press. We have to differentiate between two scenarios: Is it the first time you press the button? If so, we are not yet connected to the Smart LED and we must first search for it. We will not implement a disconnect mechanism in our program (feel free to add this as an exercise). This means that on a subsequent button press, you don't need to search for the button anymore, the connection will stay established. 
+The logic starts on button press. We have to differentiate between two scenarios: Is it the first time you press the button? If so, we are not yet connected to the Smart LED and we must first search for it. We will not implement a disconnect mechanism in our program (feel free to add this as an exercise). This means that on a subsequent button press, you don't need to search for the button anymore, the connection will stay established.
 
-Let's say we are not yet connected: The Smart Button must scan for the Smart LED's advertisements. It parses every received advertisement package for the LED Service UUID we implemented in part 1. If an ad is found with our UUID a connection will be established. 
+Let's say we are not yet connected: The Smart Button must scan for the Smart LED's advertisements. It parses every received advertisement package for the LED Service UUID we implemented in part 1. If an ad is found with our UUID a connection will be established.
 
-Now that we are connected: How can we read the current state of the LED? You know the LED state characteristic UUID, right? The UUID is not used for reading and writing directly, instead, we use so-called characteristic handles. The reason why is simple: You save bandwidth, the UUID is 16 bytes and the handle is only 2 bytes.  If we press the button for the first time, we don't know the handle yet. The process of enquiring a peripheral for the handle is called *Service Discovery*. In practice, you might not need to do this, if you know the handle and you know that the attribute table in your peripheral doesn't change.  
+Now that we are connected: How can we read the current state of the LED? You know the LED state characteristic UUID, right? The UUID is not used for reading and writing directly, instead, we use so-called characteristic handles. The reason why is simple: You save bandwidth, the UUID is 16 bytes and the handle is only 2 bytes. If we press the button for the first time, we don't know the handle yet. The process of enquiring a peripheral for the handle is called _Service Discovery_. In practice, you might not need to do this, if you know the handle and you know that the attribute table in your peripheral doesn't change.
 
-Once we have the handle, we can read the current state of the LED, negate it and write it back to the Smart LED. 
+Once we have the handle, we can read the current state of the LED, negate it and write it back to the Smart LED.
 
 ## State Machine Implementation
 
@@ -128,11 +132,11 @@ How do you implement a state machine in Zephyr? Even though Zephyr has a [State 
 
 ### [Semaphores](https://docs.zephyrproject.org/latest/kernel/services/synchronization/semaphores.html)
 
-Remember that on each button press we call the function *ble_toogle_led()*. What happens if the user presses the button multiple times? We already integrated the 250ms debounce timeout, but what happens if scanning, service discovery, and reading/writing the state takes longer than that? We have to prevent that the state machine is called again before the previous call has finished. This is a perfect use case for semaphores! 
+Remember that on each button press we call the function _ble_toogle_led()_. What happens if the user presses the button multiple times? We already integrated the 250ms debounce timeout, but what happens if scanning, service discovery, and reading/writing the state takes longer than that? We have to prevent that the state machine is called again before the previous call has finished. This is a perfect use case for semaphores!
 
 A semaphore is a numerical value representing the number of resources currently available to use. In our case, the resource is the BLE hardware. We cannot run the state machine concurrently, there is only one BLE antenna to send and receive data.
 
-The following code creates a semaphore of capacity 1 and shows how it is consumed in the function *ble_toggle_led()*:
+The following code creates a semaphore of capacity 1 and shows how it is consumed in the function _ble_toggle_led()_:
 
 ```c
 K_SEM_DEFINE(sem, 1, 1);
@@ -148,11 +152,11 @@ void ble_toogle_led() {
 }
 ```
 
-Every time the function is called, it tries to acquire the semaphore. If the semaphore is taken, you could wait for it to be available again, but in our case, we simply return (ignoring the button press). If the semaphore is available, we take it and thus prevent consequential button presses to take it again before the semaphore has been released.  After taking the semaphore, we start our state machine implemented in a separate thread called *workqueue* by calling *k_work_submit()*.
+Every time the function is called, it tries to acquire the semaphore. If the semaphore is taken, you could wait for it to be available again, but in our case, we simply return (ignoring the button press). If the semaphore is available, we take it and thus prevent consequential button presses to take it again before the semaphore has been released. After taking the semaphore, we start our state machine implemented in a separate thread called _workqueue_ by calling _k_work_submit()_.
 
 ### [Workqueue](https://docs.zephyrproject.org/latest/kernel/services/threads/workqueue.html)
 
-Workqueues are kernel objects that use a dedicated system thread to process work given to them. Their main use case is for high-priority tasks to offload possibly slow low-priority work into a separate background task. To do this you must first create a *k_work* struct and initialize it in the *ble_setup() function*:
+Workqueues are kernel objects that use a dedicated system thread to process work given to them. Their main use case is for high-priority tasks to offload possibly slow low-priority work into a separate background task. To do this you must first create a _k_work_ struct and initialize it in the _ble_setup() function_:
 
 ```c
 static struct k_work work;
@@ -173,13 +177,13 @@ void ble_setup() {
 }
 ```
 
-The function *k_work_init()* attaches the work handler function *work_handler()* to the work object. This function will be executed every time the button is pressed (if we can acquire the semaphore!) and it contains the actual state machine logic.  
+The function _k_work_init()_ attaches the work handler function _work_handler()_ to the work object. This function will be executed every time the button is pressed (if we can acquire the semaphore!) and it contains the actual state machine logic.
 
 ### [Events](https://docs.zephyrproject.org/latest/kernel/services/synchronization/events.html)
 
-Before we can dive into the implementation of the work handler, we fist need to take a look at the events. Events are kernel objects for synchronization. You can use them for inter-thread information exchange. Imagine you have two threads: One thread that samples a sensor and another thread that processes the samples. Using events the sample thread can send out a *SAMPLE_EVENT* each time it collects a sample. The processing thread can wait for these events and start processing the samples right after receiving the event. 
+Before we can dive into the implementation of the work handler, we fist need to take a look at the events. Events are kernel objects for synchronization. You can use them for inter-thread information exchange. Imagine you have two threads: One thread that samples a sensor and another thread that processes the samples. Using events the sample thread can send out a _SAMPLE_EVENT_ each time it collects a sample. The processing thread can wait for these events and start processing the samples right after receiving the event.
 
-Events are declared in the following way: 
+Events are declared in the following way:
 
 ```c
 K_EVENT_DEFINE(event);
@@ -193,12 +197,12 @@ enum {
 };
 ```
 
-Events are represented as bits of a 32-bit integer, which means that you can have a maximum 32 events per event object. The receiving thread can wait for one specific or multiple different events and the sender thread can send one or multiple events. You have two functions for sending an event: 
+Events are represented as bits of a 32-bit integer, which means that you can have a maximum 32 events per event object. The receiving thread can wait for one specific or multiple different events and the sender thread can send one or multiple events. You have two functions for sending an event:
 
-|*k_event_post()*|Replace the old events with the given events.|
-|*k_event_set()*|Merge the given events with the already set one.|
+|_k_event_post()_|Replace the old events with the given events.|
+|_k_event_set()_|Merge the given events with the already set one.|
 
-We will only use *k_event_post()* to override the currently set events with a new event because our events occur sequentially and not at the same time.  With all this information, let us take a look at the work handler function, which implements the actual state machine logic using events:
+We will only use _k_event_post()_ to override the currently set events with a new event because our events occur sequentially and not at the same time. With all this information, let us take a look at the work handler function, which implements the actual state machine logic using events:
 
 ```c
 static void work_handler(struct k_work *work) {
@@ -233,16 +237,15 @@ static void work_handler(struct k_work *work) {
 }
 ```
 
-The work handler starts by checking if we are already connected. If not, we start scanning for the Smart LED advertisements. The function *k_event_wait()* puts the work handler into idle for as long as the event *EV_LED_FOUND* has not been sent. The event itself is set by the advertisement parser callback we will look at later, after successfully finding the Smart LED. If no Smart LED can be found, the worker thread will run into a timeout, stop scanning, give the semaphore back, and stop executing. 
+The work handler starts by checking if we are already connected. If not, we start scanning for the Smart LED advertisements. The function _k_event_wait()_ puts the work handler into idle for as long as the event _EV_LED_FOUND_ has not been sent. The event itself is set by the advertisement parser callback we will look at later, after successfully finding the Smart LED. If no Smart LED can be found, the worker thread will run into a timeout, stop scanning, give the semaphore back, and stop executing.
 
-Once we found the Smart LED, we connect to it and wait for the connection to get established. After ensuring the connection, we check if we have already stored the LED state characteristics handle. If not, we start the service discovery and obtain it. With the handle, we can read the current value of the LED state and write the toggled value back. 
+Once we found the Smart LED, we connect to it and wait for the connection to get established. After ensuring the connection, we check if we have already stored the LED state characteristics handle. If not, we start the service discovery and obtain it. With the handle, we can read the current value of the LED state and write the toggled value back.
 
 Lastly, we give the semaphore back, thus enabling the state machine logic to repeat on the next button press. That was a lot! Let us take a look at each of these steps separately!
 
-
 ## Scaning and Parsing Advertisement Data
 
-The Smart LED periodically sends out small BLE packages called advertisements. These packages contain the connection-related information (e.g.: whether establishing a connection is allowed or not), the device address, and the UUID of the LED service. During the scanning phase, the Smart Button scans all incoming BLE advertisements for the LED service UUID. If it is found, the Smart LED's address is stored and the Smart LED tries to establish a connection. 
+The Smart LED periodically sends out small BLE packages called advertisements. These packages contain the connection-related information (e.g.: whether establishing a connection is allowed or not), the device address, and the UUID of the LED service. During the scanning phase, the Smart Button scans all incoming BLE advertisements for the LED service UUID. If it is found, the Smart LED's address is stored and the Smart LED tries to establish a connection.
 
 The following function sets the scan parameters and starts the scanning:
 
@@ -267,7 +270,7 @@ void start_scan() {
 }
 ```
 
-Let us go through the scan parameter: 
+Let us go through the scan parameter:
 
 |BT_LE_SCAN_TYPE_PASSIVE|Don't request scan response data|
 |BT_LE_SCAN_OPT_NONE|No Options|
@@ -278,27 +281,27 @@ The first parameters sets our scanning mode to passive, which means that it will
 
 Keep in mind the difference between the scan window and the scan interval: In our current configuration the Smart Button will scan every 60ms (interval) for about 30ms (window).
 
-These parameters are passed to the function *bt_le_scan_start()* together with a *device_found* callback. This callback is fired every time our Smart LED receives an advertisement package:
+These parameters are passed to the function _bt_le_scan_start()_ together with a _device_found_ callback. This callback is fired every time our Smart LED receives an advertisement package:
 
 ```c
-static void device_found_cb(const bt_addr_le_t *addr, int8_t rssi, 
+static void device_found_cb(const bt_addr_le_t *addr, int8_t rssi,
                             uint8_t type, struct net_buf_simple *ad) {
   bt_data_parse(ad, led_found_cb, (void *)addr);
 }
 ```
 
-The callback receives the following parameters form the BLE stack: 
+The callback receives the following parameters form the BLE stack:
 
 |const bt_addr_le_t *addr|BLE address of the peripheral|
 |int8_t rssi|Received signal strength indication|
 |uint8_t type|Type of advertisement|
 |struct net_buf_simple *ad|Advertisement data|
 
-We don't do much in the callback, we just pass the advertisement data, a callback function, and the address to *bt_data_parser()*. This function deconstructs the raw advertisement data and splits it up into parts. 
+We don't do much in the callback, we just pass the advertisement data, a callback function, and the address to _bt_data_parser()_. This function deconstructs the raw advertisement data and splits it up into parts.
 
-Advertisement data can consist of different parts: E.g., you can advertise multiple service UUIDs in a single advertisement package. The function *bt_data_parser()* will now take them apart and call your callback for each of the parts individually. 
+Advertisement data can consist of different parts: E.g., you can advertise multiple service UUIDs in a single advertisement package. The function _bt_data_parser()_ will now take them apart and call your callback for each of the parts individually.
 
-The actual processing of the advertisements happens in the callback function *led_found_cb()*:
+The actual processing of the advertisements happens in the callback function _led_found_cb()_:
 
 ```c
 static bool led_found_cb(struct bt_data *data, void *user_data) {
@@ -325,9 +328,9 @@ static bool led_found_cb(struct bt_data *data, void *user_data) {
 }
 ```
 
-Remember that our Smart LED only ever advertises the LED service UUID! This makes writing the callback quite easy. The function receives the advertisement data in a preprocessed form, we can directly access the type and length of the data. 
+Remember that our Smart LED only ever advertises the LED service UUID! This makes writing the callback quite easy. The function receives the advertisement data in a preprocessed form, we can directly access the type and length of the data.
 
-We only process ads that contain data of type *BT_DATA_UUID128_ALL* which must also be 128bit long. After this sanity check we copy the UUID from the ad into the variable *found_uuid* using the function *bt_uuid_create()*. This copied UUID can now be compare the our known LED service UUID. If a match is found, we can store the Smart LED's address and stop scanning. The function for stopping the scanning process is quite trivial: 
+We only process ads that contain data of type _BT_DATA_UUID128_ALL_ which must also be 128bit long. After this sanity check we copy the UUID from the ad into the variable _found_uuid_ using the function _bt_uuid_create()_. This copied UUID can now be compare the our known LED service UUID. If a match is found, we can store the Smart LED's address and stop scanning. The function for stopping the scanning process is quite trivial:
 
 ```c
 static void stop_scan() {
@@ -340,11 +343,11 @@ static void stop_scan() {
 }
 ```
 
-Finally, we set the event *EV_LED_FOUND*, so that our state machine can continue to the next state. 
+Finally, we set the event _EV_LED_FOUND_, so that our state machine can continue to the next state.
 
-## Connecting 
+## Connecting
 
-Now that we know the Smart LED's address and we can connect to it. The following function starts a connection attempt with default parameters: 
+Now that we know the Smart LED's address and we can connect to it. The following function starts a connection attempt with default parameters:
 
 ```c
 static void connect() {
@@ -359,10 +362,9 @@ static void connect() {
 }
 ```
 
-We have to pass the Smart LED's address and the connection parameters to the function *bt_conn_le_create()*. The connection-related data will be stored in the global variable *led_conn*. 
+We have to pass the Smart LED's address and the connection parameters to the function _bt_conn_le_create()_. The connection-related data will be stored in the global variable _led_conn_.
 
-How do you know that the connection attempt is successful? You guessed it! With callback functions! With the macro *BT_CONN_CB_DEFINE* you can specify two callbacks that get  fired when a connection is established or when a disconnect happens: 
-
+How do you know that the connection attempt is successful? You guessed it! With callback functions! With the macro _BT_CONN_CB_DEFINE_ you can specify two callbacks that get fired when a connection is established or when a disconnect happens:
 
 ```c
 static void connected(struct bt_conn *conn, uint8_t conn_err) {
@@ -388,14 +390,13 @@ BT_CONN_CB_DEFINE(conn_callbacks) = {
 };
 ```
 
-In the callback *connected()*, we set the event *EV_CONNECTED* in case of a successful connection. We currently don't handle the case of an unsuccessful connection, you would need to include states for handling that scenario in a production app. All we do is call *bt_conn_unref()* which decrements the connection's reference count (used by the BLE stack for bookkeeping). For the callback *disconnected()* we do the same. 
-
+In the callback _connected()_, we set the event _EV_CONNECTED_ in case of a successful connection. We currently don't handle the case of an unsuccessful connection, you would need to include states for handling that scenario in a production app. All we do is call _bt_conn_unref()_ which decrements the connection's reference count (used by the BLE stack for bookkeeping). For the callback _disconnected()_ we do the same.
 
 ## Service Discovery
 
-We are connected! Great now all we need to do is read the current state of the Smart LED and set a new one. How do we do that? Well, we know the UUID of the LED state characteristic, so it must be straightforward? Not so fast! The custom UUID would be far too long to send  with each read or write. If you are accessing a BLE characteristic (or attribute in ATT terms), you need to know its attribute handle. 
+We are connected! Great now all we need to do is read the current state of the Smart LED and set a new one. How do we do that? Well, we know the UUID of the LED state characteristic, so it must be straightforward? Not so fast! The custom UUID would be far too long to send with each read or write. If you are accessing a BLE characteristic (or attribute in ATT terms), you need to know its attribute handle.
 
-The attribute handle is a 16-bit value representing a (possible) 128-bit UUID. How do you acquire the handle for our attribute LED state? With a process called service discovery! The following function starts a service discovery: 
+The attribute handle is a 16-bit value representing a (possible) 128-bit UUID. How do you acquire the handle for our attribute LED state? With a process called service discovery! The following function starts a service discovery:
 
 ```c
 static struct bt_gatt_discover_params discover_params;
@@ -417,7 +418,7 @@ static void discover_led_service() {
 }
 ```
 
-Service discovery is needs multiple parameters: 
+Service discovery is needs multiple parameters:
 
 |uuid|The LED state UUID|
 |func|The callback function to execute once the service is found|
@@ -425,8 +426,7 @@ Service discovery is needs multiple parameters:
 |end_handle|Attribute handle to stop searching at: 0xFFFF|
 |type|Type of attributes to discovery: Characteristics only|
 
-The process is simple: The Smart LED starts searching at handle 0 until until it finds the proper handle of the LED state attribute (maximum to handle 0xFFFF). Once the handle is found, the callback function *led_service_discover_cb()* is called: 
-
+The process is simple: The Smart LED starts searching at handle 0 until until it finds the proper handle of the LED state attribute (maximum to handle 0xFFFF). Once the handle is found, the callback function _led_service_discover_cb()_ is called:
 
 ```c
 static uint8_t led_service_discover_cb(struct bt_conn *conn,
@@ -439,11 +439,11 @@ static uint8_t led_service_discover_cb(struct bt_conn *conn,
 }
 ```
 
-In the callback we store the attribute handle in the global variable *led_state_handle*, stop the service discovery, and set the event *EV_HANDLE_FOUND*. 
+In the callback we store the attribute handle in the global variable _led_state_handle_, stop the service discovery, and set the event _EV_HANDLE_FOUND_.
 
 ## Reading the LED State
 
-With the attribute handle, we can finaly read the current state of the LED: 
+With the attribute handle, we can finaly read the current state of the LED:
 
 ```c
 static void read_led_state() {
@@ -457,9 +457,9 @@ static void read_led_state() {
 }
 ```
 
-The parameters needed are simple: You specify how many attributes you want to read in the *handle_count*, set the handle to our discovered handle stored in *led_state_handle*, set the offset to 0, and specify the read callback function. 
+The parameters needed are simple: You specify how many attributes you want to read in the _handle_count_, set the handle to our discovered handle stored in _led_state_handle_, set the offset to 0, and specify the read callback function.
 
-After configuring the parameters, you can start reading the attribute with *bt_gatt_read()*. Once the value is successfully read, the callback function *read_func()* is called: 
+After configuring the parameters, you can start reading the attribute with _bt_gatt_read()_. Once the value is successfully read, the callback function _read_func()_ is called:
 
 ```c
 static uint8_t read_func(struct bt_conn *conn, uint8_t err,
@@ -472,11 +472,11 @@ static uint8_t read_func(struct bt_conn *conn, uint8_t err,
 }
 ```
 
-The read callback provides us with the attribute's value in the parameter *data*. In a production app, you would check the length of the data, but in our case, we know that it will always be of length 1. We can therefore cast the pointer to a *uint8_t* pointer, dereference it, and store the value into the global variable *led_state*. After that, we can set the event *EV_STATE_READ* and continue. 
+The read callback provides us with the attribute's value in the parameter _data_. In a production app, you would check the length of the data, but in our case, we know that it will always be of length 1. We can therefore cast the pointer to a _uint8_t_ pointer, dereference it, and store the value into the global variable _led_state_. After that, we can set the event _EV_STATE_READ_ and continue.
 
 ## Writing the LED State
 
-We are nearly done! Let us toggle and write the new state to the Smart LED. The following function first inverts the state of the LED, then prepares the write parameters, and finally sends the GATT write command: 
+We are nearly done! Let us toggle and write the new state to the Smart LED. The following function first inverts the state of the LED, then prepares the write parameters, and finally sends the GATT write command:
 
 ```c
 static void write_led_state() {
@@ -494,9 +494,10 @@ static void write_led_state() {
   bt_gatt_write(led_conn, &write_params);
 }
 ```
-The parameters are self-explanatory: Provide the LED state attribute handle, the offset to write to, a reference to the value you want to write, the length of the data, and a callback function which is called when the GATT write is performed. 
 
-Pass the parameters to the function *bt_gatt_write()*. Once the write operation is done, the callback *write_func()* will be fired: 
+The parameters are self-explanatory: Provide the LED state attribute handle, the offset to write to, a reference to the value you want to write, the length of the data, and a callback function which is called when the GATT write is performed.
+
+Pass the parameters to the function _bt_gatt_write()_. Once the write operation is done, the callback _write_func()_ will be fired:
 
 ```c
 static void write_func(struct bt_conn *conn, uint8_t err,
@@ -510,17 +511,15 @@ static void write_func(struct bt_conn *conn, uint8_t err,
 }
 ```
 
-The callback does not contain any more logic. We print success or error and set the event *EV_STATE_WRITTEN*. This final event will end the state machine, allowing the whole process to start again on the next button press. 
+The callback does not contain any more logic. We print success or error and set the event _EV_STATE_WRITTEN_. This final event will end the state machine, allowing the whole process to start again on the next button press.
 
-We did it! We successfully toggled the state of the Smart LED! 
-
+We did it! We successfully toggled the state of the Smart LED!
 
 ## Summary
 
-In this blog post we programmed an ESP32 to act as a Smart Button which is capable of toggling the Smart LED we created in the previous post. On each button press an event-based state machine is started in a worker thread, that performs all necessary steps successively. First, we had to parse advertisements for the Smart LED's service UUID to obtain its BLE address. Once we had the address, we started a service discovery to request the attribute handle associated with the LED state attribute. Using the handle, we read the current state of the LED, toggled it, and wrote the new state back. 
+In this blog post we programmed an ESP32 to act as a Smart Button which is capable of toggling the Smart LED we created in the previous post. On each button press an event-based state machine is started in a worker thread, that performs all necessary steps successively. First, we had to parse advertisements for the Smart LED's service UUID to obtain its BLE address. Once we had the address, we started a service discovery to request the attribute handle associated with the LED state attribute. Using the handle, we read the current state of the LED, toggled it, and wrote the new state back.
 
 I hope this post helped you to understand how to implement a BLE central using Zephyr. Stay tuned for the next one!
-
 
 ## Parts
 
