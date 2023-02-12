@@ -12,7 +12,7 @@ description: "What is the Zephyr shell? How do I use it and how can I create a c
    <img src="/assets/img/zephyr-basics-shell/typing.gif" width="60%"/>
 </p>
 
-Welcome back to Zephyr basics! In this blog post, we will take a look at Zephy's Shell, one of the most useful features for debugging and maintenance. The shell is similar to the ones you know from Unix/Linux. It can be accessed via the UART port and comes with various built-in features. Out of the box, you can use it to change parameters, set/read GPIOs, access the I2C bus, change log levels, and more. In this tutorial, we will take a look at how to set up the shell, the built-in commands, and how to implement a custom shell command.
+Welcome back to Zephyr basics! In this blog post, we will take a look at Zephy's Shell, one of the most useful features for debugging and maintenance. The shell is similar to the ones you know from Unix/Linux. It can be accessed via the UART port and comes with various built-in features. Out of the box, you can use it to change parameters, set/read GPIOs, access the I2C bus, change log levels, and more. In this tutorial, we will take a look at how to set up the shell, the built-in commands, and how to implement a custom shell command. You can find the full source code on <a href="https://github.com/michael-angerer/zephyr_basics">GitHub</a>.
 
 ## Built-in Commands
 
@@ -305,7 +305,7 @@ We already know that commands consists of multiple levels. The Zephyr documentat
 > - **Static subcommand (level > 0):** Number and syntax must be known during compile time. Created in the software module.
 > - **Dynamic subcommand (level > 0):** Number and syntax does not need to be known during compile time. Created in the software module.
 
-Which of these types do we need? We now that we need a root command for sure, under which all our subcommands will be structured. After the root command we need to specify the action we want to the LED to do (turn on, turn off, blink), and then we also need a 3rd level to specify which of the 3 LEDs to act use.
+Which of these types do we need? We now that we need a root command for sure, under which all our subcommands will be structured. After the root command we need to specify the action we want the LED to do (turn on, turn off, blink), and we also need a 3rd level to specify which of the 3 LEDs to use.
 
 Some of the possible commands we want to implement are:
 
@@ -352,10 +352,10 @@ SHELL_STATIC_SUBCMD_SET_CREATE(
 
 It consists of our three subcommands defined with the macro _SHELL_CMD_, where each needs to be provided with 4 parameters:
 
-- a name (the name later used int the shell command)
-- pointer to the subcommands (level 2; our LED names)
+- a name (the name later used in the shell command)
+- a pointer to the subcommands (level 2; our LED names)
 - a helpful description
-- a command handler function, used once the command is used
+- a command handler function, called once the command is executed
 
 The set must contain _SHELL_SUBCMD_SET_END_ as the last member.
 
