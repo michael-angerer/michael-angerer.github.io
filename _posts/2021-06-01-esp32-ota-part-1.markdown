@@ -40,7 +40,7 @@ You may need to remove the _build_ folder and the old _sdkconfig_ file first and
 
 ### Partition Table
 
-The partition table defines how the flash storage of the ESP32 is devided up. In the default configuration there are 3 partitions: _nvs_, _phy_init_, and _factory_.
+The partition table defines how the flash storage of the ESP32 is divided up. In the default configuration there are 3 partitions: _nvs_, _phy_init_, and _factory_.
 
 The _nvs_ partition is used for a simple key-value storage for user data. You can use the <a href="https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/storage/nvs_flash.html"> non-volatile storage library </a> to save your own data. Many external libraries (including NimBLE) use it for storing data too, so do not forget to include it even if you don't use it yourself.
 
@@ -48,7 +48,7 @@ The _phy_init_ partition contains initilalizing data for the radio hardware (wif
 
 The largest partition is called _factory_ and it contains the user program. When booting up an ESP32 the bootloader will run the app located here.
 
-What would happen now if we update our application while running from the _factory_ partition? Well, overwritting the code which is currently running does not seem like a viable approach. It is quite figuratively like cutting the branch you are standing on. To tackle this problem, we will use a partition table that looks like this:
+What would happen now if we update our application while running from the _factory_ partition? Well, overwriting the code which is currently running does not seem like a viable approach. It is quite figuratively like cutting the branch you are standing on. To tackle this problem, we will use a partition table that looks like this:
 
 <p align="center">
    <img src="/assets/img/esp32-ota/partition-table.png" width="50%"/>
